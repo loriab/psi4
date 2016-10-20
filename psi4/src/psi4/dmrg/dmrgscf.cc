@@ -51,6 +51,7 @@
 #include <iostream>
 #include <fstream>
 
+#include <chemps2/TwoDM.h>
 #include <chemps2/Irreps.h>
 #include <chemps2/Problem.h>
 #include <chemps2/CASSCF.h>
@@ -478,8 +479,11 @@ SharedWavefunction dmrg(SharedWavefunction wfn, Options& options)
     const bool dmrg_molden            = options.get_bool("DMRG_MOLDEN_WRITE");
     const bool dmrg_density_ao        = options.get_bool("DMRG_OPDM_AO_PRINT");
     const int dmrg_num_vec_diis       = CheMPS2::DMRGSCF_numDIISvecs;
+    const bool fcidump_exit           = options.get_bool("DMRG_FCIDUMP_EXIT");
+    const std::string fcidumpname     = psi::get_writer_file_prefix( wfn->molecule()->name() ) + ".FCIDUMP";
     const std::string unitaryname     = psi::get_writer_file_prefix( wfn->molecule()->name() ) + ".unitary.h5";
     const std::string diisname        = psi::get_writer_file_prefix( wfn->molecule()->name() ) + ".DIIS.h5";
+    const std::string twodmname       = psi::get_writer_file_prefix( wfn->molecule()->name() ) + ".2dm";
 
     /****************************************
      *   Check if the input is consistent   *
@@ -770,6 +774,34 @@ SharedWavefunction dmrg(SharedWavefunction wfn, Options& options)
         buildQmatOCC( theQmatOCC, iHandler, work1, work2, wfn->Ca(), myJK, wfn );
         buildHamDMRG( ints, Aorbs_ptr, theTmatrix, theQmatOCC, iHandler, HamDMRG, psio, wfn );
 
+        if (fcidump_exit) {
+            HamDMRG->writeFCIDUMP(fcidumpname.c_str(), nDMRGelectrons, wfn_multp-1, wfn_irrep);
+            
+            delete [] mem1;
+            delete [] mem2;
+            delete [] theupdate;
+            if (theDIISparameterVector!=NULL){ delete [] theDIISparameterVector; }
+            if (theLocalizer!=NULL){ delete theLocalizer; }
+            if (theDIIS!=NULL){ delete theDIIS; }
+            
+            delete wmattilde;
+            delete theTmatrix;
+            delete theQmatOCC;
+            delete theQmatACT;
+            delete theFmatrix;
+            delete [] DMRG1DM;
+            delete [] DMRG2DM;
+            delete theRotatedTEI;
+            delete unitary;
+            delete iHandler;
+            
+            delete OptScheme;
+            delete Prob;
+            delete HamDMRG;
+            
+            return wfn;
+        }
+
         //Localize the active space and reorder the orbitals within each irrep based on the exchange matrix
         if (( dmrg_active_space.compare("LOC")==0 ) && (theDIIS==NULL)){ //When the DIIS has started: stop
 
@@ -897,6 +929,10 @@ SharedWavefunction dmrg(SharedWavefunction wfn, Options& options)
     outfile->Printf("The DMRG-SCF energy = %3.10f \n", Energy);
     Process::environment.globals["CURRENT ENERGY"] = Energy;
     Process::environment.globals["DMRG-SCF ENERGY"] = Energy;
+
+    //CheMPS2::SyBookkeeper * bkkp = new CheMPS2::SyBookkeeper(ndmrg_states, Prob);
+    //CheMPS2::TwoDM * twodm = new CheMPS2::TwoDM(bkkp, Prob);
+    //twodm->write2DMAfile( twodmname.c_str() );
 
     if ((( dmrg_molden ) || (( dmrg_caspt2 ) && ( PSEUDOCANONICAL ))) && ( nIterations > 0 )){
 

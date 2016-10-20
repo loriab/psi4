@@ -4539,6 +4539,8 @@ int read_options(const std::string &name, Options & options, bool suppress_print
         /*- Print out the density matrix in the AO basis -*/
         options.add_bool("DMRG_OPDM_AO_PRINT", false);
 
+       /*- Do only generate a FCIDUMP file, then stop? -*/
+        options.add_bool("DMRG_FCIDUMP_EXIT", false);
     }
 
   return true;
