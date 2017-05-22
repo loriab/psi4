@@ -237,7 +237,7 @@ void Wavefunction::c1_deep_copy(SharedWavefunction other)
     c1_deep_copy(other.get());
 }
 
-void Wavefunction::c1_deep_copy(Wavefunction *other)
+void Wavefunction::c1_deep_copy(const Wavefunction *other)
 {
     if (!S_) {
         throw PSIEXCEPTION("Wavefunction::c1_deep_copy must copy an initialized wavefunction.");
@@ -315,9 +315,7 @@ void Wavefunction::c1_deep_copy(Wavefunction *other)
     if (other->epsilon_a_) epsilon_a_ = SharedVector(other->epsilon_a_->clone());
     if (other->epsilon_b_) epsilon_b_ = SharedVector(other->epsilon_b_->clone());
 
-    SharedMatrix tmp = other->Ca_subset("AO", "ALL");
-    if (other->Ca_) Ca_ = tmp; //other->Ca_subset("AO", "ALL");
-    //if (other->Ca_) Ca_ = other->Ca_subset("AO", "ALL");
+    if (other->Ca_) Ca_ = other->Ca_subset("AO", "ALL");
 //    SharedMatrix Cocc = Ca_subset("SO", "OCC");
 //    SharedMatrix Cvir = Ca_subset("SO", "VIR");
 //    Dimension virpi = Cvir->colspi();
@@ -608,7 +606,7 @@ SharedMatrix Wavefunction::Cb() const {
     return Cb_;
 }
 
-std::vector <std::vector<int>> Wavefunction::subset_occupation(const Dimension &noccpi, const std::string &subset)
+std::vector <std::vector<int>> Wavefunction::subset_occupation(const Dimension &noccpi, const std::string &subset) const
 {
     if (!(subset == "FROZEN_OCC" ||
           subset == "FROZEN_VIR" ||
@@ -646,7 +644,7 @@ std::vector <std::vector<int>> Wavefunction::subset_occupation(const Dimension &
     return positions;
 }
 
-SharedMatrix Wavefunction::C_subset_helper(SharedMatrix C, const Dimension &noccpi, SharedVector epsilon, const std::string &basis, const std::string &subset)
+SharedMatrix Wavefunction::C_subset_helper(SharedMatrix C, const Dimension &noccpi, SharedVector epsilon, const std::string &basis, const std::string &subset) const
 {
     std::vector <std::vector<int>> positions = subset_occupation(noccpi, subset);
 
@@ -1027,7 +1025,7 @@ OrbitalSpace Wavefunction::beta_orbital_space(const std::string &id, const std::
     return OrbitalSpace(id, subset, Cb_subset(basis, subset), epsilon_b_subset(basis, subset), basisset_, integral_);
 }
 
-SharedMatrix Wavefunction::Ca_subset(const std::string &basis, const std::string &subset)
+SharedMatrix Wavefunction::Ca_subset(const std::string &basis, const std::string &subset) const
 {
     return C_subset_helper(Ca_, nalphapi_, epsilon_a_, basis, subset);
 }
