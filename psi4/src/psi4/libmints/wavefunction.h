@@ -212,8 +212,8 @@ protected:
 
     /// Helpers for C/D/epsilon transformers
     SharedMatrix C_subset_helper(SharedMatrix C, const Dimension& noccpi, SharedVector epsilon, const std::string& basis, const std::string& subset) const;
-    SharedMatrix F_subset_helper(SharedMatrix F, SharedMatrix C, const std::string& basis);
-    SharedVector epsilon_subset_helper(SharedVector epsilon, const Dimension& noccpi, const std::string& basis, const std::string& subset);
+    SharedVector epsilon_subset_helper(SharedVector epsilon, const Dimension&
+noccpi, const std::string& basis, const std::string& subset) const;
     std::vector<std::vector<int> > subset_occupation(const Dimension& noccpi, const std::string& subset) const;
 
     /// If atomic point charges are available they will be here
@@ -430,7 +430,8 @@ public:
     *  ALL, ACTIVE, FROZEN, OCC, VIR, FROZEN_OCC, ACTIVE_OCC, ACTIVE_VIR, FROZEN_VIR
     * @return the matrix in Pitzer order in the desired basis
     **/
-    SharedMatrix Cb_subset(const std::string& basis = "SO", const std::string& subset = "ALL");
+    SharedMatrix Cb_subset(const std::string& basis = "SO", const std::string&
+subset = "ALL") const;
 
     /**
      * @brief Creates an OrbitalSpace object containing information about the request alpha orbital space.
@@ -459,7 +460,7 @@ public:
     *  AO, SO, MO
     * @return the matrix in the desired basis
     **/
-    SharedMatrix Da_subset(const std::string& basis = "SO");
+    SharedMatrix Da_subset(const std::string& basis = "SO") const;
 
     /**
     * Return the Db matrix in the desired basis
@@ -467,7 +468,7 @@ public:
     *  AO, SO, MO
     * @return the matrix in the desired basis
     **/
-    SharedMatrix Db_subset(const std::string& basis = "SO");
+    SharedMatrix Db_subset(const std::string& basis = "SO") const;
 
     /**
     * Return the D matrix in the desired basis
@@ -477,7 +478,33 @@ public:
     *  AO, SO, MO, CartAO
     * @return the D matrix in the desired basis
     **/
-    SharedMatrix D_subset_helper(SharedMatrix D, SharedMatrix C, const std::string& basis);
+    SharedMatrix D_subset_helper(SharedMatrix D, SharedMatrix C, const std::string& basis) const;
+
+    /**
+    * Return the Fa matrix in the desired basis
+    * @param basis the symmetry basis to use
+    *  AO, SO, MO
+    * @return the matrix in the desired basis
+    **/
+    SharedMatrix Fa_subset(const std::string& basis = "SO") const;
+
+    /**
+    * Return the Fb matrix in the desired basis
+    * @param basis the symmetry basis to use
+    *  AO, SO, MO
+    * @return the matrix in the desired basis
+    **/
+    SharedMatrix Fb_subset(const std::string& basis = "SO") const;
+
+    /**
+    * Return the F matrix in the desired basis
+    * @param F matrix in the SO basis to transform
+    * @param C matrix in the SO basis to use as a transformer
+    * @param basis the symmetry basis to use
+    *  AO, SO, MO, CartAO
+    * @return the F matrix in the desired basis
+    **/
+    SharedMatrix F_subset_helper(SharedMatrix F, SharedMatrix C, const std::string& basis) const;
 
     /**
     * Return the alpha orbital eigenvalues in the desired basis
@@ -486,7 +513,7 @@ public:
     * @param subset the subset of orbitals to return
     *  ALL, ACTIVE, FROZEN, OCC, VIR, FROZEN_OCC, ACTIVE_OCC, ACTIVE_VIR, FROZEN_VIR
     */
-    SharedVector epsilon_a_subset(const std::string& basis = "SO", const std::string& subset = "ALL");
+    SharedVector epsilon_a_subset(const std::string& basis = "SO", const std::string& subset = "ALL") const;
 
     /**
     * Return the beta orbital eigenvalues in the desired basis
@@ -495,7 +522,7 @@ public:
     * @param subset the subset of orbitals to return
     *  ALL, ACTIVE, FROZEN, OCC, VIR, FROZEN_OCC, ACTIVE_OCC, ACTIVE_VIR, FROZEN_VIR
     */
-    SharedVector epsilon_b_subset(const std::string& basis = "SO", const std::string& subset = "ALL");
+    SharedVector epsilon_b_subset(const std::string& basis = "SO", const std::string& subset = "ALL") const;
 
     /**
      * Projects the given orbitals from the old to the new basis
