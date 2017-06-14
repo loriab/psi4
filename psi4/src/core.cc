@@ -81,6 +81,7 @@ void export_plugins(py::module&);
 void export_psio(py::module&);
 void export_wavefunction(py::module&);
 void export_options(py::module&);
+void export_molecule(py::module&);
 
 // In export_plugins.cc
 void py_psi_plugin_close_all();
@@ -1300,7 +1301,6 @@ PYBIND11_PLUGIN(core) {
     core.def("get_memory", py_psi_get_memory, "Returns the amount of memory available to Psi (in bytes).");
     core.def("set_num_threads", py_psi_set_n_threads, py::arg("nthread"), py::arg("quiet")=false, "Sets the number of threads to use in SMP parallel computations.");
     core.def("get_num_threads", py_psi_get_n_threads, "Returns the number of threads to use in SMP parallel computations.");
-//    core.def("mol_from_file",&LibBabel::ParseFile,"Reads a molecule from another input file");
     core.def("set_parent_symmetry",
         py_psi_set_parent_symmetry,
         "Sets the symmetry of the 'parent' (undisplaced) geometry, by Schoenflies symbol, at the beginning of a finite difference computation.");
@@ -1458,7 +1458,6 @@ PYBIND11_PLUGIN(core) {
                  outfile_name = ofname;
                  });
     core.def("get_output_file", [](){ return outfile_name; });
-//    core.def("print_version", [](){ print_version("stdout"); });
     core.def("set_psi_file_prefix", [](std::string fprefix){psi_file_prefix = strdup(fprefix.c_str()); });
 
     // Define library classes
@@ -1469,6 +1468,7 @@ PYBIND11_PLUGIN(core) {
     export_fock(core);
     export_wavefunction(core);
     export_options(core);
+    export_molecule(core);
 
     // ??
     //py::class_<Process::Environment>(core, "Environment")

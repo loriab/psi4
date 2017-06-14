@@ -255,24 +255,6 @@ void Molecule::set_reinterpret_coordentry(bool rc)
     reinterpret_coordentries_ = rc;
 }
 
-/// Addition
-//Molecule Molecule::operator+(const Molecule& other)
-//{
-
-//}
-
-///// Subtraction
-//Molecule Molecule::operator-(const Molecule& other)
-//{
-
-//}
-
-/// Plus equals
-void Molecule::operator+=(const Molecule & /*other*/)
-{
-    throw PSIEXCEPTION("Empty method?");
-}
-
 void Molecule::clear()
 {
     lock_frame_ = false;
