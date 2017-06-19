@@ -29,6 +29,14 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
+#try:
+#    from psi4.driver.p4util.exceptions import *
+#    from psi4 import core
+#    isP4regime = True
+#except ImportError:
+#    from .exceptions import *
+#    isP4regime = False
+
 import os
 #import re
 #import math
@@ -1131,6 +1139,103 @@ class Molecule(LibmintsMolecule):
         """
         coc = scale(self.center_of_charge(), -1.0)
         self.translate(coc)
+
+    def to_dict(self, force_c1=False):
+
+        moldict = {}
+        if self.PYname not in ['', 'default']:
+            moldict['name'] = self.PYname
+        if self.PYcharge_specified:
+            moldict['system_charge'] = self.PYmolecular_charge
+        if self.PYmultiplicity_specified:
+            moldict['system_multiplicity'] = self.PYmultiplicity
+        if not self.PYmove_to_com:
+            moldict['fix_com'] = not self.PYmove_to_com
+        if self.orientation_fixed():
+            moldict['fix_orientation'] = self.PYfix_orientation
+        if force_c1:
+            moldict['fix_symmetry'] = 'c1'
+        elif self.symmetry_from_input():
+            moldict['fix_symmetry'] = self.pg.symbol()
+        moldict['units'] = self.PYunits
+        moldict['input_units_to_au'] = self.input_units_to_au
+        if self.has_zmatrix:
+            moldict['zmat'] = self.zmat
+        # TODO zmat, geometry_variables
+        # apparently py- and c- sides settled on a diff convention of 2nd of pair in fragments_
+        self.fragments = [[fr[0], fr[1] + 1] for fr in self.fragments]
+        moldict['fragments'] = self.fragments
+        moldict['fragment_types'] = self.fragment_types
+        moldict['fragment_charges'] = self.fragment_charges
+        moldict['fragment_multiplicities'] = self.fragment_multiplicities
+
+        moldict['full_atoms'] = []
+        for at in self.full_atoms:
+            atdict = {}
+            atdict['Z'] = at.PYZ
+            atdict['charge'] = at.PYcharge
+            atdict['mass'] = at.PYmass
+            atdict['symbol'] = at.PYsymbol
+            atdict['label'] = at.PYlabel
+            atdict['ghosted'] = at.ghosted
+            [x, y, z] = at.compute()
+            atdict['x'] = x
+            atdict['y'] = y
+            atdict['z'] = z
+            moldict['full_atoms'].append(atdict)
+
+        print('\nqcdb.Molecule.to_dict', moldict, '\n')
+        return moldict
+
+    @classmethod
+    def from_dict(cls, mol_init):
+
+        print('\nqcdb.Molecule.from_dict', mol_init, '\n')
+        mol = Molecule()
+        mol.set_units(mol_init['units'])
+        mol.input_units_to_au = mol_init['input_units_to_au']
+
+        if 'name' in mol_init:
+            mol.set_name(mol_init['name'])
+        if 'fix_com' in mol_init:
+            mol.PYmove_to_com = not mol_init['fix_com']
+        if 'fix_orientation' in mol_init:
+            mol.fix_orientation(mol_init['fix_orientation'])
+        if 'fix_symmetry' in mol_init:
+            mol.reset_point_group(mol_init['fix_symmetry'])
+        if 'system_charge' in mol_init:
+            mol.set_molecular_charge(mol_init['system_charge'])
+        if 'system_multiplicity' in mol_init:
+            mol.set_multiplicity(mol_init['system_multiplicity'])
+
+        if 'full_atoms' in mol_init:
+            for at in mol_init['full_atoms']:
+                mol.add_atom(at['Z'], at['x'], at['y'], at['z'], at['symbol'], at['mass'],
+                             at['charge'], at['label'])
+
+        official_fragments = mol_init['fragments']
+        qcdb_fragments = [[fr[0], fr[1] - 1] for fr in official_fragments]
+        mol.set_fragment_pattern(qcdb_fragments,
+                                 mol_init['fragment_types'],
+                                 mol_init['fragment_charges'],
+                                 mol_init['fragment_multiplicities'])
+
+        return mol
+
+    def set_fragment_pattern(self, frl, frt, frc, frm):
+
+        nfr = len(frl)
+        if (len(frt) != nfr) or (len(frc) != nfr) or (len(frm) != nfr):
+            raise ValidationError("""Molecule::set_fragment_pattern: fragment arguments not of same length'.""")
+        for fr in frt:
+            if fr not in ['Real', 'Ghost', 'Absent']:
+                raise ValidationError("""Molecule::set_fragment_pattern: fragment_types not among 'Real', 'Ghost', 'Absent'""")
+
+        self.fragments = frl
+        self.fragment_types = frt
+        self.fragment_charges = frc
+        self.fragment_multiplicities = frm
+
 
 # Attach methods to qcdb.Molecule class
 from .interface_dftd3 import run_dftd3 as _dftd3_qcdb_yo

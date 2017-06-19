@@ -209,18 +209,16 @@ public:
      * \param symb atomic symbol to use
      * \param mass mass to use if non standard
      * \param charge charge to use if non standard
-     * \param lineno line number when taken from a string
      */
-    void add_atom(int Z, double x, double y, double z,
-                  const char *symb = "", double mass = 0.0,
-                  double charge = 0.0, int lineno = -1);
+     void add_atom(double Z, double x, double y, double z, std::string sym = "", double mass = 0.0,
+                   double charge = 0.0, std::string lbl = "");
 
     /// Whether the multiplicity was given by the user
     bool multiplicity_specified() const { return multiplicity_specified_; }
     /// Whether the charge was given by the user
     bool charge_specified() const { return charge_specified_; }
     /// The number of fragments in the molecule
-    int nfragments() const { return fragments_.size();}
+    int nfragments() const { return fragments_.size(); }
     /// The number of active fragments in the molecule
     int nactive_fragments();
     /// Returns the list of atoms belonging to a fragment.
@@ -228,7 +226,7 @@ public:
     std::pair<int, int> fragment_atom_pair(int f) { return fragments_[f]; }
 
     /// Get molecule name
-    const std::string name() const {return name_; }
+    const std::string name() const { return name_; }
     /// Returns the name of the basis set on the specified atom
     const std::string& basis_on_atom(int atom) const;
     /// Set molecule name
@@ -292,11 +290,17 @@ public:
     void set_basis_by_label(const std::string& label, const std::string& name, const std::string& type="BASIS");
     void set_shell_by_label(const std::string& label, const std::string& name, const std::string& type="BASIS");
 
+    /// Number of frozen core for molecule given freezing state
+    int nfrozen_core(std::shared_ptr<BasisSet> ecpbasis, const std::string& depth = "");
+
     /// @{
     /// Tests to see of an atom is at the passed position with a given tolerance
     int atom_at_position1(double *, double tol = 0.05) const;
     int atom_at_position2(Vector3&, double tol = 0.05) const;
     /// @}
+
+    /// Sets the frame so update_geometry can act correctly
+    void set_lock_frame(bool tf) { lock_frame_ = tf; }
 
     /// Do we reinterpret coordentries during a call to update_geometry?
     void set_reinterpret_coordentry(bool rc);
@@ -337,11 +341,6 @@ public:
      * Reinterpret the fragments for reals/ghosts and build the atom list
      */
     void reinterpret_coordentries();
-
-    /**
-     * Reinterpret the fragments for QM/EFP and build the atom list
-     */
-    void reinterpret_fragments();
 
     /**
      * Find the nearest point group within the tolerance specified, and adjust
@@ -607,11 +606,16 @@ public:
     const std::vector<int>& fragment_charges() const { return fragment_charges_; }
     /// The multiplicity of each fragment
     const std::vector<int>& fragment_multiplicities() const { return fragment_multiplicities_; }
+    /// Sets the fragmentation information directly
+    void set_fragment_pattern(const std::vector<std::pair<int, int>>,
+                              const std::vector<FragmentType>,
+                              const std::vector<int>,
+                              const std::vector<int>);
 
     /// Sets whether this molecule contains at least one zmatrix entry
-    void set_has_zmatrix(bool tf) {zmat_ = tf;}
+    void set_has_zmatrix(bool tf) { zmat_ = tf; }
     /// Whether this molecule has at least one zmatrix entry
-    bool has_zmatrix() const {return zmat_;}
+    bool has_zmatrix() const { return zmat_; }
     /// Assigns the value val to the variable labelled string in the list of geometry variables.
     /// Also calls update_geometry()
     void set_variable(const std::string &str, double val);
@@ -623,7 +627,7 @@ public:
     bool is_variable(const std::string &str) const;
 
     /// Sets the molecular charge
-    void set_molecular_charge(int charge) {charge_specified_ = true; molecular_charge_ = charge;}
+    void set_molecular_charge(int charge) { charge_specified_ = true; molecular_charge_ = charge; }
     /// Gets the molecular charge
     int molecular_charge() const;
     /// Sets the multiplicity (defined as 2Ms + 1)
@@ -631,16 +635,22 @@ public:
     /// Get the multiplicity (defined as 2Ms + 1)
     int multiplicity() const;
     /// Sets the geometry units
-    void set_units(GeometryUnits units) { units_ = units; }
+    void set_units(GeometryUnits units);
     /// Gets the geometry units
     GeometryUnits units() const { return units_; }
+    /// Sets the geometry unit conversion
+    void set_input_units_to_au(double conv) { input_units_to_au_ = conv; }
+    /// Gets the geometry unit conversion
+    double input_units_to_au() const { return input_units_to_au_; }
 
     /// Get whether or not orientation is fixed
     bool orientation_fixed() const { return fix_orientation_; }
     /// Fix the orientation at its current frame
-    void set_orientation_fixed(bool fix = true) { fix_orientation_ = fix;}
+    void set_orientation_fixed(bool fix = true) { fix_orientation_ = fix; }
+    /// Get whether or not center of mass is fixed
+    bool com_fixed() const { return !move_to_com_; }
     /// Fix the center of mass at its current frame
-    void set_com_fixed(bool fix = true) {move_to_com_ = !fix;}
+    void set_com_fixed(bool fix = true) { move_to_com_ = !fix; }
     /// Returns the Schoenflies symbol
     std::string schoenflies_symbol() const;
     /// Check if current geometry fits current point group
@@ -648,7 +658,7 @@ public:
     /// Return point group name such as C3v or S8.
     std::string full_point_group() const;
     /// Return point group name such as Cnv or Sn.
-    std::string full_point_group_with_n() const { return FullPointGroupList[full_pg_];}
+    std::string full_point_group_with_n() const { return FullPointGroupList[full_pg_]; }
     /// Return n in Cnv, etc.; If there is no n (e.g. Td) it's the highest-order rotation axis.
     int full_pg_n() { return full_pg_n_; }
 

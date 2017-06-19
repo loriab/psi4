@@ -26,7 +26,8 @@
 # @END LICENSE
 #
 
-from __future__ import print_function,absolute_import
+from __future__ import print_function
+from __future__ import absolute_import
 """Queries the PubChem database using a compound name (i.e. 1,3,5-hexatriene)
    to obtain a molecule string that can be passed to Molecule. ::
 

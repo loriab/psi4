@@ -268,8 +268,12 @@ class LibmintsMolecule(dict):
         >>> H2OH2O.set_units('Angstom')
 
         """
-        if units == 'Angstrom' or units == 'Bohr':
+        if units == 'Angstrom':
             self.PYunits = units
+            self.input_units_to_au = 1.0 / psi_bohr2angstroms
+        elif units == 'Bohr':
+            self.PYunits = units
+            self.input_units_to_au = 1.0
         else:
             raise ValidationError("""Molecule::set_units: argument must be 'Angstrom' or 'Bohr'.""")
 
@@ -1148,7 +1152,7 @@ class LibmintsMolecule(dict):
                 self.all_variables.append(vstr)
                 return VariableValue(vstr, self.geometry_variables)
 
-    def add_atom(self, Z, x, y, z, label="", mass=0.0, charge=0.0, lineno=-1):
+    def add_atom(self, Z, x, y, z, symbol="", mass=0.0, charge=0.0, label=""):
         """Add an atom to the molecule
         *Z* atomic number
         *x* cartesian coordinate
@@ -1157,14 +1161,16 @@ class LibmintsMolecule(dict):
         *symb* atomic symbol to use
         *mass* mass to use if non standard
         *charge* charge to use if non standard
-        *lineno* line number when taken from a string
+        *label* atom label (extended symbol)
 
         """
         self.lock_frame = False
+        if label == "":
+            label = symbol
 
         if self.atom_at_position([x, y, z]) == -1:
             # Dummies go to full_atoms, ghosts need to go to both.
-            self.full_atoms.append(CartesianEntry(self.nallatom(), Z, charge, mass, label, label, \
+            self.full_atoms.append(CartesianEntry(self.nallatom(), Z, charge, mass, symbol, label, \
                 NumberValue(x), NumberValue(y), NumberValue(z)))
             if label.upper() != 'X':
                 self.atoms.append(self.full_atoms[-1])

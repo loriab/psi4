@@ -30,22 +30,59 @@
 
 #include "psi4/libefp_solver/efp_solver.h"
 #include "psi4/liboptions/liboptions.h"
+#include "psi4/libparallel/process.h"
 
 using namespace psi;
 using namespace psi::efp;
 
+
+void construct_from_pydict(py::list pyefp) {
+
+    size_t efp_nfrag = len(pyefp);
+    std::vector <std::string> efp_fnames;
+    enum efp_coord_type { XYZABC, POINTS, ROTMAT };
+    efp_coord_type efp_ctype;
+    std::vector <double> hint_coords;
+
+// TODO       if (efp_nfrag > 0) {
+
+    // Collect and initialize all fragment names and library paths
+    for (size_t fr = 0; fr < efp_nfrag; ++fr) {
+        py::dict frag_dict = pyefp[fr].cast<py::dict>();
+        efp_fnames.push_back(frag_dict["fragment_file"].cast<std::string>());
+    }
+    Process::environment.get_efp()->add_fragments(efp_fnames);
+
+    // Collect geometry hints
+    for (size_t fr = 0; fr < efp_nfrag; ++fr) {
+        py::dict frag_dict = pyefp[fr].cast<py::dict>();
+
+        if (frag_dict["efp_type"].cast<std::string>() == "xyzabc")
+            efp_ctype = XYZABC;
+        else if (frag_dict["efp_type"].cast<std::string>() == "points")
+            efp_ctype = POINTS;
+
+        hint_coords = frag_dict["coordinates_hint"].cast<std::vector <double>>();
+        Process::environment.get_efp()->set_frag_coordinates(fr, efp_ctype, &hint_coords[0]);
+    }
+
+    // Finalize efp fragment composition
+    Process::environment.get_efp()->finalize_fragments();
+
+    Process::environment.get_efp()->print_efp_geometry();
+}
+
+
 void export_efp(py::module& m) {
-    // because there is no default constructor for libefp, need flag
-    // "no_init" and the constructor definition, def(init<Options&>())
     py::class_<EFP, std::shared_ptr<EFP> >(m, "EFP", "Class interfacing with libefp")
+        // because there is no default constructor for libefp
         .def(py::init<Options&>())
-        .
 #ifdef USING_libefp
-        def("compute", &EFP::compute, "Computes libefp energies and, if active, torque")
+        .def("compute", &EFP::compute, "Computes libefp energies and, if active, torque")
         .def("set_qm_atoms", &EFP::set_qm_atoms, "Provides libefp with QM fragment information")
         .def("print_out", &EFP::print_out, "Prints options settings and EFP and QM geometries")
-        .
 #endif
-        def("nfragments", &EFP::get_frag_count,
-            "Returns the number of EFP fragments in the molecule");
+        .def_static("construct_from_pydict", construct_from_pydict, "docstring")
+        .def("nfragments", &EFP::get_frag_count,
+             "Returns the number of EFP fragments in the molecule");
 }
