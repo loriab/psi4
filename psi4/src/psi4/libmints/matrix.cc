@@ -3561,17 +3561,17 @@ void Matrix::load(const std::string &filename)
     }
 }
 
-bool Matrix::equal(const Matrix &rhs)
+bool Matrix::equal(const Matrix &rhs, double TOL)
 {
-    return equal(&rhs);
+    return equal(&rhs, TOL);
 }
 
-bool Matrix::equal(const SharedMatrix &rhs)
+bool Matrix::equal(const SharedMatrix &rhs, double TOL)
 {
-    return equal(rhs.get());
+    return equal(rhs.get(), TOL);
 }
 
-bool Matrix::equal(const Matrix *rhs)
+bool Matrix::equal(const Matrix *rhs, double TOL)
 {
     // Check dimensions
     if (rhs->nirrep() != nirrep())
@@ -3589,7 +3589,7 @@ bool Matrix::equal(const Matrix *rhs)
     for (int h = 0; h < nirrep(); ++h) {
         for (int m = 0; m < rowspi()[h]; ++m) {
             for (int n = 0; n < colspi()[h ^ symmetry_]; ++n) {
-                if (get(h, m, n) != rhs->get(h, m, n))
+                if (fabs(get(h, m, n) - rhs->get(h, m, n)) > TOL)
                     return false;
             }
         }
