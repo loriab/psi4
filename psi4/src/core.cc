@@ -124,7 +124,6 @@ namespace scfgrad { SharedMatrix   scfhess(SharedWavefunction, Options&); }
 // namespace fisapt { PsiReturnType fisapt(SharedWavefunction, Options&); }
 namespace psimrcc { PsiReturnType psimrcc(SharedWavefunction, Options&); }
 namespace sapt { PsiReturnType sapt(SharedWavefunction, SharedWavefunction, SharedWavefunction, Options&); }
-namespace thermo { PsiReturnType thermo(SharedWavefunction, SharedVector, Options&); }
 
 #ifdef USING_CheMPS2
 namespace dmrg       { SharedWavefunction dmrg(SharedWavefunction, Options&);     }
@@ -545,13 +544,6 @@ SharedWavefunction py_psi_adc(SharedWavefunction ref_wfn)
     return adc_wfn;
 }
 
-double py_psi_thermo(SharedWavefunction ref_wfn, SharedVector vib_freqs)
-{
-    py_psi_prepare_options_for_module("THERMO");
-    thermo::thermo(ref_wfn, vib_freqs, Process::environment.options);
-    return 0.0;
-}
-
 char const *py_psi_version()
 {
 #ifdef PSI_VERSION
@@ -856,7 +848,7 @@ bool py_psi_option_exists_in_module(std::string const& module, std::string const
 
     return in_module;
 }
-    
+
 void py_psi_revoke_global_option_changed(std::string const& key)
 {
     std::string nonconst_key = to_upper(key);
@@ -1487,7 +1479,6 @@ PYBIND11_PLUGIN(core) {
     core.def("occ", py_psi_occ, "Runs the orbital optimized CC codes.");
     core.def("dfocc", py_psi_dfocc, "Runs the density-fitted orbital optimized CC codes.");
     core.def("adc", py_psi_adc, "Runs the ADC propagator code, for excited states.");
-    core.def("thermo", py_psi_thermo, "Computes thermodynamic data.");
     core.def("opt_clean", py_psi_opt_clean, "Cleans up the optimizer's scratch files.");
     core.def("set_environment", [](const std::string key, const std::string value){ return Process::environment.set(key, value); }, "Set enviromental vairable");
     core.def("get_environment", [](const std::string key){ return Process::environment(key); }, "Get enviromental vairable");
