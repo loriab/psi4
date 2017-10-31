@@ -197,7 +197,7 @@ protected:
     /// If a gradient is available it will be here:
     SharedMatrix gradient_;
 
-    /// If a Hessian is available it will be here:
+    /// If a Hessian is available (NOT mass-weighted!) it will be here
     SharedMatrix hessian_;
 
     /// Helpers for C/D/epsilon transformers
