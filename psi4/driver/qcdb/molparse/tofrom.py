@@ -13,6 +13,12 @@ except NameError:
     long = int
 
 
+try:
+    long(1)
+except NameError:
+    long = int
+
+
 def from_arrays(geom=None,
                 elea=None,
                 elez=None,
