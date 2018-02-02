@@ -7,11 +7,6 @@ from ..exceptions import *
 from .chgmult import validate_and_fill_chgmult
 from .nucleus import reconcile_nucleus
 
-try:
-    long(1)
-except NameError:
-    long = int
-
 
 try:
     long(1)
