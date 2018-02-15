@@ -33,6 +33,11 @@ import sys
 import math
 
 try:
+    basestring
+except NameError:
+    basestring = str
+
+try:
     import cPickle as pickle
 except ImportError:
     import pickle
@@ -1211,7 +1216,7 @@ class WrappedDatabase(object):
         if *union* is False.
 
         """
-        mcs = [set(v.data) for v in self.hrxn.itervalues()]
+        mcs = [set(v.data) for v in self.hrxn.values()]
         if union:
             return sorted(set.union(*mcs))
         else:
@@ -1220,7 +1225,7 @@ class WrappedDatabase(object):
     def benchmark(self):
         """Returns the model chemistry label for the database's benchmark."""
         bm = None
-        rxns = self.hrxn.itervalues()
+        rxns = iter(self.hrxn.values())
         while bm is None:
             try:
                 bm = next(rxns).benchmark
@@ -1645,7 +1650,7 @@ class Database(object):
         Database modelchem.
 
         """
-        mcs = [set(odb.available_modelchems()) for odb in self.dbdict.itervalues()]
+        mcs = [set(odb.available_modelchems()) for odb in self.dbdict.values()]
         new = sorted(set.intersection(*mcs))
         for mc in new:
             self.mcs[mc] = [mc] * len(self.dbdict.keys())
@@ -2092,7 +2097,7 @@ reinitialize
         """
         rhrxn = OrderedDict()
         for db, odb in self.dbdict.items():
-            dbix = self.dbdict.keys().index(db)
+            dbix = list(self.dbdict.keys()).index(db)
             lss = self.sset[sset][dbix]
             if lss is not None:
                 for rxn in odb.hrxn:
