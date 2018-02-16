@@ -1,6 +1,6 @@
 #! apply linear fragmentation algorithm to a water cluster
 
-from psi4.driver import qcdb
+import qcdb
 
 iceIh = """\
 36
@@ -81,7 +81,7 @@ compare_arrays(np.array(pmol.geometry())[[2, 13, 20]], np.array(bmols[4].geometr
 compare_integers(True, type(bmol) == psi4.core.Molecule, 'P return type')  #TEST
 
 import numpy as np
-from psi4.driver.qcdb.bfs import BFS
+from qcdb.bfs import BFS
 
 # FaOOFaOO 3.6 ?
 mol_elem = np.asarray(['C', 'C', 'H', 'H', 'O', 'O', 'O', 'O', 'H', 'H'])

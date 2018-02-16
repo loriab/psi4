@@ -32,8 +32,10 @@ SuperFunctionals
 import re
 import os
 
+import qcdb
+from qcdb import interface_dftd3 as dftd3
+
 from psi4 import core
-from psi4.driver.qcdb import interface_dftd3 as dftd3
 from psi4.driver.p4util.exceptions import *
 from . import libxc_xc_funcs
 from . import gga_superfuncs

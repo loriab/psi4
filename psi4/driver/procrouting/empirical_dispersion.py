@@ -30,8 +30,11 @@
 Module to provide lightweight definitions of emperical dispersion terms.
 """
 from psi4 import core
-from psi4.driver.qcdb import interface_dftd3 as dftd3
-from psi4.driver.qcdb import interface_gcp as gcp
+
+import qcdb
+from qcdb import interface_dftd3 as dftd3
+from qcdb import interface_gcp as gcp
+
 from psi4.driver import p4util
 
 

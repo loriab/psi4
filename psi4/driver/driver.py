@@ -41,11 +41,12 @@ import shutil
 
 import numpy as np
 
+import qcdb
+
 from psi4.driver import driver_util
 from psi4.driver import driver_cbs
 from psi4.driver import driver_nbody
 from psi4.driver import p4util
-from psi4.driver import qcdb
 from psi4.driver.procrouting import *
 from psi4.driver.p4util.exceptions import *
 # never import wrappers or aliases into this file

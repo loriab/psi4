@@ -39,9 +39,10 @@ import subprocess
 
 import numpy as np
 
+import qcdb
+
 from psi4 import extras
 from psi4.driver import p4util
-from psi4.driver import qcdb
 from psi4.driver import constants
 from psi4.driver.p4util.exceptions import *
 from psi4.driver.molutil import *
@@ -3390,7 +3391,7 @@ def run_sapt(name, **kwargs):
     core.print_out('\n')
     e_sapt = core.sapt(dimer_wfn, monomerA_wfn, monomerB_wfn)
 
-    from psi4.driver.qcdb.psivardefs import sapt_psivars
+    from qcdb.psivardefs import sapt_psivars
     p4util.expand_psivars(sapt_psivars())
     optstash.restore()
     for term in ['ELST', 'EXCH', 'IND', 'DISP', 'TOTAL']:

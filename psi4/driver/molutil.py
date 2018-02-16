@@ -29,9 +29,10 @@
 """Module with utility functions that act on molecule objects."""
 from __future__ import absolute_import
 
+import qcdb
+
 from psi4 import core
 from psi4.driver.p4util import constants, filter_comments
-from psi4.driver import qcdb
 
 
 def molecule_set_attr(self, name, value):

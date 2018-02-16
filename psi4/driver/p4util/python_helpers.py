@@ -30,10 +30,13 @@ import os
 import re
 import sys
 import uuid
+
 import numpy as np
 
+import qcdb
+from qcdb.interface_dftd3 import run_dftd3
+
 from psi4 import core
-from psi4.driver import qcdb
 from . import optproc
 
 ## Python basis helps
