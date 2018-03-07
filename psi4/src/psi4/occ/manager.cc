@@ -351,6 +351,18 @@ void OCCWave::mp2_manager()
 
     Process::environment.globals["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] = Emp2AB;
     Process::environment.globals["MP2 SAME-SPIN CORRELATION ENERGY"] = Emp2AA+Emp2BB;
+
+    outfile->Printf("\n\nHIT THE SPOT 1\n\n");
+    variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] = Emp2AB;
+    variables_["MP2 SAME-SPIN CORRELATION ENERGY"] = Emp2AA + Emp2BB;
+    variables_["MP2 SINGLES ENERGY"] = Emp2_t1;
+    variables_["MP2 CORRELATION ENERGY"] = variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] +
+                                           variables_["MP2 SAME-SPIN CORRELATION ENERGY"] +
+                                           variables_["MP2 SINGLES ENERGY"];
+    variables_["MP2 TOTAL ENERGY"] = Emp2;
+    variables_["CUSTOM SCS-MP2 CORRELATION ENERGY"] = os_scale * Emp2AB + ss_scale * (Emp2AA + Emp2BB) + Emp2_t1;
+    variables_["CUSTOM SCS-MP2 TOTAL ENERGY"] =  Escf + variables_["CUSTOM SCS-MP2 CORRELATION ENERGY"];
+
     if (reference == "ROHF") Process::environment.globals["MP2 SINGLES ENERGY"] = Emp2_t1;
 
         // if scs on
@@ -784,6 +796,14 @@ void OCCWave::mp3_manager()
 
         Process::environment.globals["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] = Emp2AB;
         Process::environment.globals["MP2 SAME-SPIN CORRELATION ENERGY"] = Emp2AA+Emp2BB;
+    outfile->Printf("\n\nHIT THE SPOT 3\n\n");
+    variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] = Emp2AB;
+    variables_["MP2 SAME-SPIN CORRELATION ENERGY"] = Emp2AA + Emp2BB;
+    variables_["MP2 SINGLES ENERGY"] = Emp2_t1;
+    variables_["MP2 CORRELATION ENERGY"] = variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] +
+                                           variables_["MP2 SAME-SPIN CORRELATION ENERGY"] +
+                                           variables_["MP2 SINGLES ENERGY"];
+    variables_["MP2 TOTAL ENERGY"] = Emp2;
 
         timer_on("T2(2)");
 	t2_2nd_sc();
@@ -837,6 +857,11 @@ void OCCWave::mp3_manager()
 	Process::environment.globals["SCSN-MP3 CORRELATION ENERGY"] = Escsnmp3 - Escf;
 	Process::environment.globals["SCS-MP3-VDW CORRELATION ENERGY"] = Escsmp3vdw - Escf;
 	Process::environment.globals["SOS-PI-MP3 CORRELATION ENERGY"] = Esospimp3 - Escf;
+
+    variables_["MP2.5 CORRELATION ENERGY"] = (Emp2 - Escf) + 0.5 * (Emp3-Emp2);
+    variables_["MP2.5 TOTAL ENERGY"] = 0.5 * (Emp3 + Emp2);
+    variables_["MP3 CORRELATION ENERGY"] = Emp3 - Escf;
+    variables_["MP3 TOTAL ENERGY"] = Emp3;
 
         // if scs on
 	if (do_scs == "TRUE") {
