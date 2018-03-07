@@ -373,9 +373,11 @@ void CIWavefunction::mpn_generator(CIvect &Hd)
        std::stringstream s;
        s << label << (2*k) << " TOTAL ENERGY";
        Process::environment.globals[s.str()] = Empn2;
+       set_variable(s.str(), Empn2);
        s.str(std::string());
        s << label << (2*k) << " CORRELATION ENERGY";
        Process::environment.globals[s.str()] = Empn2 - CalcInfo_->escf;
+       set_variable(s.str(), Empn2 - CalcInfo_->escf);
        //s.str(std::string());
        //s << label << (2*k) << " CORRECTION ENERGY";
        //Process::environment.globals[s.str()] = mp2k_energy[2*k];
@@ -390,9 +392,11 @@ void CIWavefunction::mpn_generator(CIvect &Hd)
        s.str(std::string());
        s << label << (2*k+1) << " TOTAL ENERGY";
        Process::environment.globals[s.str()] = Empn2;
+       set_variable(s.str(), Empn2);
        s.str(std::string());
        s << label << (2*k+1) << " CORRELATION ENERGY";
        Process::environment.globals[s.str()] = Empn2 - CalcInfo_->escf;
+       set_variable(s.str(), Empn2 - CalcInfo_->escf);
        //s.str(std::string());
        //s << label << (2*k+1) << " CORRECTION ENERGY";
        //Process::environment.globals[s.str()] = mp2k_energy[2*k+1];
@@ -404,9 +408,11 @@ void CIWavefunction::mpn_generator(CIvect &Hd)
        std::stringstream s;
        s << label << (k+1) << " TOTAL ENERGY";
        Process::environment.globals[s.str()] = Empn;
+       set_variable(s.str(), Empn);
        s.str(std::string());
        s << label << (k+1) << " CORRELATION ENERGY";
        Process::environment.globals[s.str()] = Empn - CalcInfo_->escf;
+       set_variable(s.str(), Empn - CalcInfo_->escf);
        //s.str(std::string());
        //s << label << (k+1) << " CORRECTION ENERGY";
        //Process::environment.globals[s.str()] = mpk_energy[k+1];
@@ -497,6 +503,7 @@ void CIWavefunction::mpn_generator(CIvect &Hd)
     * Save the MPn or MP(2n-1) energy
     */
    if (Parameters_->save_mpn2 == 1 && Parameters_->wigner) {
+     set_energy(Empn2);
      Process::environment.globals["CURRENT ENERGY"] = Empn2;
      Process::environment.globals["CURRENT CORRELATION ENERGY"] = Empn2 - Process::environment.globals["CURRENT REFERENCE ENERGY"];
 
@@ -506,6 +513,7 @@ void CIWavefunction::mpn_generator(CIvect &Hd)
        outfile->Printf( "\n    MP%d energy saved\n", (Parameters_->maxnvect * 2) - 1);
    }
    else if (Parameters_->save_mpn2 == 2 && Parameters_->wigner) {
+     set_energy(Empn2a);
      Process::environment.globals["CURRENT ENERGY"] = Empn2a;
      Process::environment.globals["CURRENT CORRELATION ENERGY"] = Empn2a - Process::environment.globals["CURRENT REFERENCE ENERGY"];
      if(Parameters_->zaptn)
@@ -514,6 +522,7 @@ void CIWavefunction::mpn_generator(CIvect &Hd)
        outfile->Printf( "\n    MP%d energy saved\n", (Parameters_->maxnvect * 2) - 2);
    }
    else {
+     set_energy(Empn);
      Process::environment.globals["CURRENT ENERGY"] = Empn;
      Process::environment.globals["CURRENT CORRELATION ENERGY"] = Empn - Process::environment.globals["CURRENT REFERENCE ENERGY"];
      if(Parameters_->zaptn)

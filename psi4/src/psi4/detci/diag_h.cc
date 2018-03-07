@@ -505,6 +505,7 @@ int CIWavefunction::diag_h(double conv_e, double conv_rms) {
     // Write out energy to psivars
     tval = evals[Parameters_->root] + edrc + nucrep;
 
+    set_energy(tval);
     Process::environment.globals["CURRENT ENERGY"] = tval;
     Process::environment.globals["CURRENT CORRELATION ENERGY"] =
         tval - CalcInfo_->escf;

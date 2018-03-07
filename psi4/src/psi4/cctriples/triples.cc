@@ -43,6 +43,7 @@
 #include "psi4/libqt/qt.h"
 #include "psi4/psifiles.h"
 #include "psi4/psi4-dec.h"
+#include "psi4/libmints/wavefunction.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -160,6 +161,9 @@ PsiReturnType cctriples(std::shared_ptr<Wavefunction> reference_wavefunction, Op
       Process::environment.globals["(T) CORRECTION ENERGY"] = ET;
       Process::environment.globals["CCSD(T) CORRELATION ENERGY"] = ET + moinfo.ecc;
       Process::environment.globals["CCSD(T) TOTAL ENERGY"] = ET + moinfo.ecc + moinfo.eref;
+      reference_wavefunction->set_variable("(T) CORRECTION ENERGY", ET);
+      reference_wavefunction->set_variable("CCSD(T) CORRELATION ENERGY", ET + moinfo.ecc);
+      reference_wavefunction->set_variable("CCSD(T) TOTAL ENERGY", ET + moinfo.ecc + moinfo.eref);
     }
     else if(params.wfn=="CCSD_AT") {
       ET = EaT_RHF();
@@ -201,6 +205,9 @@ PsiReturnType cctriples(std::shared_ptr<Wavefunction> reference_wavefunction, Op
     Process::environment.globals["(T) CORRECTION ENERGY"] = ET;
     Process::environment.globals["CCSD(T) CORRELATION ENERGY"] = ET + moinfo.ecc;
     Process::environment.globals["CCSD(T) TOTAL ENERGY"] = ET + moinfo.ecc + moinfo.eref;
+    reference_wavefunction->set_variable("(T) CORRECTION ENERGY", ET);
+    reference_wavefunction->set_variable("CCSD(T) CORRELATION ENERGY", ET + moinfo.ecc);
+    reference_wavefunction->set_variable("CCSD(T) TOTAL ENERGY", ET + moinfo.ecc + moinfo.eref);
   }
   else if(params.ref == 2) { /** UHF **/
 
@@ -255,6 +262,9 @@ PsiReturnType cctriples(std::shared_ptr<Wavefunction> reference_wavefunction, Op
     Process::environment.globals["(T) CORRECTION ENERGY"] = ET;
     Process::environment.globals["CCSD(T) CORRELATION ENERGY"] = ET + moinfo.ecc;
     Process::environment.globals["CCSD(T) TOTAL ENERGY"] = ET + moinfo.ecc + moinfo.eref;
+    reference_wavefunction->set_variable("(T) CORRECTION ENERGY", ET);
+    reference_wavefunction->set_variable("CCSD(T) CORRELATION ENERGY", ET + moinfo.ecc);
+    reference_wavefunction->set_variable("CCSD(T) TOTAL ENERGY", ET + moinfo.ecc + moinfo.eref);
 
   } // UHF
 
