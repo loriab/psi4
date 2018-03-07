@@ -1,3 +1,3 @@
 include(TestingMacros)
 
-add_regression_test(castup1 "psi;quicktests;scf")
+add_regression_test(castup1 "psi;quicktests;scf;qwks")

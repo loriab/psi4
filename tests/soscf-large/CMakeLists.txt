@@ -1,3 +1,3 @@
 include(TestingMacros)
 
-add_regression_test(soscf-large "psi;quicktests;scf;cart")
+add_regression_test(soscf-large "psi;quicktests;scf;cart;qwks")
