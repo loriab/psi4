@@ -31,8 +31,7 @@ Module to provide lightweight definitions of emperical dispersion terms.
 """
 from psi4 import core
 
-import qcdb
-from qcdb import interface_dftd3 as dftd3
+from qcdb import iface_dftd3 as dftd3
 from qcdb import interface_gcp as gcp
 
 from psi4.driver import p4util
@@ -196,27 +195,39 @@ class EmpericalDispersion(object):
     def compute_energy(self, molecule):
         if self.disp_type == 'gr':
             if self.alias in ['HF3C', 'PBEH3C']:
-                dashd_part = dftd3.run_dftd3(molecule, dashlvl=self.dtype.lower().replace('-', ''),
-                                             dashparam=self.dash_params, verbose=False, dertype=0)
+                dashd_part = dftd3.run_dftd3(molecule, dashlevel=self.dtype.lower().replace('-', ''),
+                                             dashparams=self.dash_params, verbose=False, dertype=0)
                 gcp_part = gcp.run_gcp(molecule, self.alias.lower(), verbose=False, dertype=0)
+                # TODO not yet updated
                 return dashd_part + gcp_part
             else:
-                return dftd3.run_dftd3(molecule, dashlvl=self.dtype.lower().replace('-', ''),
-                                       dashparam=self.dash_params, verbose=False, dertype=0)
+                d3jrec = dftd3.run_dftd3(molecule.to_dict(np_out=False), dashlevel=self.dtype.lower().replace('-', ''),
+                                         dashparams=self.dash_params, verbose=False, dertype=0)
+                dashd = float(d3jrec['qcvars']['DISPERSION CORRECTION ENERGY'].data)
+                core.set_variable('DISPERSION CORRECTION ENERGY', dashd)
+                self.qcvars = {k: float(v.data) for k, v in d3jrec['qcvars'].items()}
+                return dashd
         else:
-            return self.disp.compute_energy(molecule)
+            dashd = self.disp.compute_energy(molecule)
+            fctl_plus_dash_name = self.alias + self.dtype + ' DISPERSION CORRECTION ENERGY'
+            self.qcvars = {fctl_plus_dash_name: dashd}
+            return dashd
 
     def compute_gradient(self, molecule):
         if self.disp_type == 'gr':
             if self.alias in ['HF3C', 'PBEH3C']:
-                dashd_part = dftd3.run_dftd3(molecule, dashlvl=self.dtype.lower().replace('-', ''),
-                                             dashparam=self.dash_params, verbose=False, dertype=1)
+                dashd_part = dftd3.run_dftd3(molecule, dashlevel=self.dtype.lower().replace('-', ''),
+                                             dashparams=self.dash_params, verbose=False, dertype=1)
                 gcp_part = gcp.run_gcp(molecule, self.alias.lower(), verbose=False, dertype=1)
                 dashd_part.add(gcp_part)
+                # TODO not yet updated
                 return dashd_part
             else:
-                return dftd3.run_dftd3(molecule, dashlvl=self.dtype.lower().replace('-', ''),
-                                       dashparam=self.dash_params, verbose=False, dertype=1)
+                d3jrec = dftd3.run_dftd3(molecule.to_dict(np_out=False), dashlevel=self.dtype.lower().replace('-', ''),
+                                         dashparams=self.dash_params, verbose=False, dertype=1)
+                dashd_part = core.Matrix.from_array(d3jrec['qcvars']['DISPERSION CORRECTION GRADIENT'].data)
+                self.qcvars = {k: float(v.data) for k, v in d3jrec['qcvars'].items()}
+                return dashd_part
         else:
             return self.disp.compute_gradient(molecule)
 

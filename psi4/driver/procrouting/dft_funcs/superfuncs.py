@@ -32,8 +32,7 @@ SuperFunctionals
 import re
 import os
 
-import qcdb
-from qcdb import interface_dftd3 as dftd3
+from qcdb import iface_dftd3 as dftd3
 
 from psi4 import core
 from psi4.driver.p4util.exceptions import *

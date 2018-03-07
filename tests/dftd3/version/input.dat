@@ -115,7 +115,7 @@ set dft_spherical_points 110
 print_stdout('  Part II: -D correction from C-side')  #TEST
 energy('b3lyp-d2gr', molecule=eeee)
 compare_values(refs['d2gr']['d'], get_variable('DISPERSION CORRECTION ENERGY'), 7, 'Ethene dimer -D2 (calling dftd3 -old)')  #TEST
-# single test below fails for mysterious dft reasons
+# single test below fails for mysterious dft reasons (sometimes named BP86-D2 DISP)
 compare_values(refs['dft']['d'] + refs['d2gr']['d'], get_variable('DFT TOTAL ENERGY'), 5, 'Ethene dimer -D2 (calling dftd3 -old)')  #TEST
 #compare_values(refs['dft']['d'] + refs['d2gr']['d'], get_variable('B3LYP-D2 TOTAL ENERGY'), 5, 'Ethene dimer -D2 (calling dftd3 -old)')  #TEST
 
@@ -127,18 +127,18 @@ compare_values(refs['dft']['muncp'] + refs['d3zero']['m'], get_variable('DFT TOT
 energy('b3lyp-d3bj', molecule=mAcp)
 compare_values(refs['d3bj']['m'], get_variable('DISPERSION CORRECTION ENERGY'), 7, 'Ethene -D3(BJ) (calling dftd3 -bj)')  #TEST
 compare_values(refs['dft']['mcp'] + refs['d3bj']['m'], get_variable('DFT TOTAL ENERGY'), 7, 'Ethene -D3(BJ) (calling dftd3 -bj)')  #TEST
-#compare_values(refs['dft']['mcp'] + refs['d3bj']['m'], get_variable('B3LYP-D3(BJ) TOTAL ENERGY'), 7, 'Ethene -D3(BJ) (calling dftd3 -bj)')  #TEST
+compare_values(refs['dft']['mcp'] + refs['d3bj']['m'], get_variable('B3LYP-D3(BJ) TOTAL ENERGY'), 7, 'Ethene -D3(BJ) (calling dftd3 -bj)')  #TEST
 
 if hasD3M:
     energy('b3lyp-d3m', molecule=mBuncp)
     compare_values(refs['d3mzero']['m'], get_variable('DISPERSION CORRECTION ENERGY'), 7, 'Ethene -D3M (calling dftd3 -zerom)')  #TEST
     compare_values(refs['dft']['muncp'] + refs['d3mzero']['m'], get_variable('DFT TOTAL ENERGY'), 7, 'Ethene -D3M (calling dftd3 -zerom)')  #TEST
-    #compare_values(refs['dft']['muncp'] + refs['d3mzero']['m'], get_variable('B3LYP-D3M TOTAL ENERGY'), 7, 'Ethene -D3M (calling dftd3 -zerom)')  #TEST
+    compare_values(refs['dft']['muncp'] + refs['d3mzero']['m'], get_variable('B3LYP-D3M TOTAL ENERGY'), 7, 'Ethene -D3M (calling dftd3 -zerom)')  #TEST
     
     energy('b3lyp-d3mbj', molecule=mBcp)
     compare_values(refs['d3mbj']['m'], get_variable('DISPERSION CORRECTION ENERGY'), 7, 'Ethene -D3M(BJ) (calling dftd3 -bjm)')  #TEST
     compare_values(refs['dft']['mcp'] + refs['d3mbj']['m'], get_variable('DFT TOTAL ENERGY'), 7, 'Ethene -D3M(BJ) (calling dftd3 -bjm)')  #TEST
-    #compare_values(refs['dft']['mcp'] + refs['d3mbj']['m'], get_variable('B3LYP-D3M(BJ) TOTAL ENERGY'), 7, 'Ethene -D3M(BJ) (calling dftd3 -bjm)')  #TEST
+    compare_values(refs['dft']['mcp'] + refs['d3mbj']['m'], get_variable('B3LYP-D3M(BJ) TOTAL ENERGY'), 7, 'Ethene -D3M(BJ) (calling dftd3 -bjm)')  #TEST
 
 
 # <<<  Part 3  >>>

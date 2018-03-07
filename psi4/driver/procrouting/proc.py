@@ -1225,7 +1225,11 @@ def scf_helper(name, post_scf=True, **kwargs):
         # Compute dftd3
         if hasattr(ref_wfn, "_disp_functor"):
             disp_energy = ref_wfn._disp_functor.compute_energy(ref_wfn.molecule())
+            # this is a roundabout way to get dispersion val into SCFWfn.energies_ (and variables_)
             ref_wfn.set_variable("-D Energy", disp_energy)
+            for qcv, qcva in ref_wfn._disp_functor.qcvars.items():
+                ref_wfn.set_variable(qcv, qcva)
+            
         ref_wfn.compute_energy()
 
     # broken clean-up
@@ -1338,6 +1342,8 @@ def scf_helper(name, post_scf=True, **kwargs):
     if hasattr(scf_wfn, "_disp_functor"):
         disp_energy = scf_wfn._disp_functor.compute_energy(scf_wfn.molecule())
         scf_wfn.set_variable("-D Energy", disp_energy)
+        for qcv, qcva in scf_wfn._disp_functor.qcvars.items():
+            scf_wfn.set_variable(qcv, qcva)
 
     # PCM preparation
     if core.get_option('SCF', 'PCM'):
@@ -2016,22 +2022,36 @@ def run_scf(name, **kwargs):
             dfmp2_wfn = core.dfmp2(scf_wfn)
             dfmp2_wfn.compute_energy()
 
-            vdh = core.get_variable('SCS-MP2 CORRELATION ENERGY')
+            vdh = core.get_variable('CUSTOM SCS-MP2 CORRELATION ENERGY')
 
         else:
             dfmp2_wfn = core.dfmp2(scf_wfn)
             dfmp2_wfn.compute_energy()
             vdh = ssuper.c_alpha() * core.get_variable('MP2 CORRELATION ENERGY')
 
-        # TODO: delete these variables, since they don't mean what they look to mean?
-        # 'MP2 TOTAL ENERGY',
-        # 'MP2 CORRELATION ENERGY',
-        # 'MP2 SAME-SPIN CORRELATION ENERGY']
+        # MP2 psivars are computed with a DFT, not HF, reference, so misleading
+        for var in scf_wfn.variables():
+            if var.startswith('MP2 '):
+                scf_wfn.del_variable(var)
 
         core.set_variable('DOUBLE-HYBRID CORRECTION ENERGY', vdh)
+        scf_wfn.set_variable('DOUBLE-HYBRID CORRECTION ENERGY', vdh)
+        scf_wfn.set_variable('{} DOUBLE-HYBRID CORRECTION ENERGY'.format(ssuper.name()), vdh)
         returnvalue += vdh
         core.set_variable('DFT TOTAL ENERGY', returnvalue)
+        scf_wfn.set_variable('DFT TOTAL ENERGY', returnvalue)
+        for pv, pvv in scf_wfn.variables().items():
+            core.print_out('SUPER {} {}\n'.format(pv, pvv))
+            if pv.endswith('DISPERSION CORRECTION ENERGY') and pv.startswith(ssuper.name()):
+                fctl_plus_disp_name = pv.split()[0]
+                scf_wfn.set_variable(fctl_plus_disp_name + ' TOTAL ENERGY', returnvalue)
+                break
+        else:
+            scf_wfn.set_variable('{} TOTAL ENERGY'.format(ssuper.name()), returnvalue)
+
         core.set_variable('CURRENT ENERGY', returnvalue)
+        scf_wfn.set_variable('CURRENT ENERGY', returnvalue)
+        scf_wfn.set_energy(returnvalue)
         core.print_out('\n\n')
         core.print_out('    %s Energy Summary\n' % (name.upper()))
         core.print_out('    -------------------------\n')
