@@ -494,6 +494,7 @@ def energy(name, **kwargs):
             core.print_out("\n\nWarning! %s does not have an associated derived wavefunction." % name)
             core.print_out("The returned wavefunction is the dimer SCF wavefunction.\n\n")
 
+        wfn.set_variable('CURRENT ENERGY', core.get_variable('CURRENT ENERGY'))
         return (core.get_variable('CURRENT ENERGY'), wfn)
     else:
         return core.get_variable('CURRENT ENERGY')

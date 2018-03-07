@@ -29,8 +29,6 @@
 """Module with utility functions that act on molecule objects."""
 from __future__ import absolute_import
 
-import qcdb
-
 from psi4 import core
 from psi4.driver.p4util import constants, filter_comments
 
@@ -73,6 +71,8 @@ def molecule_from_string(cls,
                          missing_enabled_return_qm='none',
                          missing_enabled_return_efp='none',
                          verbose=1):
+    import qcdb
+
     molrec = qcdb.molparse.from_string(molstr=molstr,
                                        dtype=dtype,
                                        name=name,
@@ -139,6 +139,7 @@ def molecule_from_arrays(cls,
         :py:class:`psi4.core.Molecule`
 
         """
+        import qcdb
         molrec = qcdb.molparse.from_arrays(geom=geom,
                                            elea=elea,
                                            elez=elez,
@@ -175,6 +176,8 @@ def dynamic_variable_bind(cls):
     the core.Molecule class.
 
     """
+    import qcdb
+
     cls.__setattr__ = molecule_set_attr
     cls.__getattr__ = molecule_get_attr
 
@@ -190,6 +193,7 @@ def dynamic_variable_bind(cls):
     cls.scramble = qcdb.Molecule._raw_scramble
     cls.from_arrays = molecule_from_arrays
     cls.from_string = molecule_from_string
+    cls.to_string = qcdb.Molecule._raw_to_string
 
 
 dynamic_variable_bind(core.Molecule)  # pass class type, not class instance
@@ -199,19 +203,27 @@ dynamic_variable_bind(core.Molecule)  # pass class type, not class instance
 # Define geometry to be used by PSI4.
 # The molecule created by this will be set in options.
 #
-# geometry("
+# set_molecule("
 #   O  1.0 0.0 0.0
 #   H  0.0 1.0 0.0
 #   H  0.0 0.0 0.0
 #
-def geometry(geom, name="default"):
+def set_molecule(geom, name="default"):
     """Function to create a molecule object of name *name* from the
     geometry in string *geom*. Permitted for user use but deprecated
     in driver in favor of explicit molecule-passing. Comments within
     the string are filtered.
 
     """
-    molrec = qcdb.molparse.from_string(geom,
+    import qcdb
+    if isinstance(geom, dict):
+        molrec = {}
+        if 'qm' in geom:
+            molrec['qm'] = geom['qm']
+        if 'efp' in geom:
+            molrec['efp'] = geom['efp']
+    else:
+        molrec = qcdb.molparse.from_string(geom,
                                        enable_qm=True,
                                        missing_enabled_return_qm='minimal',
                                        enable_efp=True,
@@ -231,7 +243,7 @@ def geometry(geom, name="default"):
     try:
         molecule.update_geometry()
     except:
-        core.print_out("Molecule: geometry: Molecule is not complete, please use 'update_geometry'\n"
+        core.print_out("Molecule: set_molecule: Molecule is not complete, please use 'update_geometry'\n"
                        "                    once all variables are set.\n")
 
     activate(molecule)

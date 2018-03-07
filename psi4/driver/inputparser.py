@@ -207,7 +207,7 @@ def process_molecule_command(matchobj):
     if name != "":
         molecule += '%s = ' % (name)
 
-    molecule += 'geometry("""%s"""' % (geometry)
+    molecule += 'set_molecule("""%s"""' % (geometry)
     if name != "":
         molecule += ',"%s"' % (name)
 
@@ -458,7 +458,7 @@ def process_external_command(matchobj):
         if not len(frag):
             continue
 
-        extern += '%sexternal_diffuse = geometry("""\n' % (spaces)
+        extern += '%sexternal_diffuse = set_molecule("""\n' % (spaces)
         extern += '%s0 1\n' % (spaces)
 
         for line in frag:
@@ -737,6 +737,9 @@ def process_input(raw_input, print_level=1):
     imports += 'from psi4.driver.constants.physconst import *\n'
     imports += 'psi4_io = core.IOManager.shared_object()\n'
 
+    manip = """energy=qcdb.energy\n"""
+    manip += """set_molecule=qcdb.set_molecule\n"""
+
     # psirc (a baby PSIthon script that might live in ~/.psi4rc)
     psirc_file = os.path.expanduser('~') + os.path.sep + '.psi4rc'
     if os.path.isfile(psirc_file):
@@ -747,12 +750,10 @@ def process_input(raw_input, print_level=1):
     else:
         psirc = ''
 
-    blank_mol = 'geometry("""\n'
-    blank_mol += '0 1\nH 0 0 0\nH 0.74 0 0\n'
-    blank_mol += '""","blank_molecule_psi4_yo")\n'
+    blank_mol = 'set_molecule("""H 0 0 0\nH 0.74 0 0""", "blank_molecule_psi4_yo")\n'
 
-    temp = imports + psirc + blank_mol + temp
-
+    temp = imports + manip + psirc + blank_mol + temp
+    
     # Move up the psi4.core namespace
     for func in dir(core):
         temp = temp.replace("psi4." + func, "psi4.core." + func)

@@ -36,6 +36,7 @@ import uuid
 import psi4
 from psi4.driver import driver
 from psi4.driver import molutil
+from psi4.driver.p4util.python_helpers import set_options
 from psi4 import core
 
 
@@ -72,7 +73,7 @@ def run_json(json_data):
             - options : dict
                 Global options to set in the Psi4 run.
             - scratch_location : str
-                Overide the default scratch location.
+                Override the default scratch location.
             - return_output : bool
                 Return the full string reprsentation of the output or not.
 
@@ -160,7 +161,7 @@ def run_json(json_data):
     prov["version"] = psi4.__version__
     prov["routine"] = "psi4.run_json"
     prov["creator"] = "Psi4"
-    json_data["provenance"] = prov
+    json_data["provenance"].append(prov)
 
     # Check input
     for check in ["driver", "method", "molecule"]:
@@ -192,8 +193,7 @@ def run_json(json_data):
     try:
         # Set options
         if "options" in json_data.keys() and (json_data["options"] is not None):
-            for k, v in json_data["options"].items():
-                core.set_global_option(k, v)
+            set_options(json_data["options"])
 
         # Rework args
         args = json_data["method"]
@@ -206,7 +206,7 @@ def run_json(json_data):
         else:
             kwargs = {}
 
-        kwargs["molecule"] = molutil.geometry(json_data["molecule"])
+        kwargs["molecule"] = molutil.set_molecule(json_data["molecule"])
 
         # Full driver call
         kwargs["return_wfn"] = True
@@ -224,6 +224,7 @@ def run_json(json_data):
             raise TypeError("Unrecognized return value of type %s\n" % type(val))
 
         json_data["variables"] = core.get_variables()
+        json_data["psivars"] = wfn.variables()
         json_data["success"] = True
 
     except Exception as error:

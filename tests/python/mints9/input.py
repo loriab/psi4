@@ -12,7 +12,7 @@ from psi4.driver import qcdb
 # JKFIT     H 23/25   C  70/81      H +9/10   C +16/20
 
 
-mymol = psi4.geometry("""
+mymol = psi4.set_molecule("""
 C    0.0  0.0 0.0
 O    1.4  0.0 0.0
 H_r -0.5 -0.7 0.0
@@ -148,7 +148,7 @@ psi4.compare_strings('AUG-CC-PVDZ-JKFIT', wert.blend(), 'blend')  #TEST
 mymol.print_out()
 
 
-mymol2 = psi4.geometry("""
+mymol2 = psi4.set_molecule("""
 0 2
 C    0.0  0.0 0.0
 O    1.4  0.0 0.0
@@ -168,7 +168,7 @@ psi4.compare_strings('DZ_PLUSPLUSPLUS', wert.name(), 'callby')  #TEST
 psi4.compare_strings('AUG-CC-PVDZ + CC-PVDZ', wert.blend(), 'blend')  #TEST
 mymol2.print_out()
 
-hene = psi4.geometry("""
+hene = psi4.set_molecule("""
 He
 Ne 1 2.0
 """)

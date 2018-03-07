@@ -1774,8 +1774,6 @@ int read_options(const std::string &name, Options & options, bool suppress_print
     options.add_str("REFERENCE", "RHF", "RHF");
     /*- How to cache quantities within the DPD library -*/
     options.add_int("CACHELEVEL", 2);
-    /*- The amount of memory available (in Mb) -*/
-    options.add_int("MEMORY", 1000);
     /*- The convergence criterion for pole searching step. -*/
     options.add_double("NEWTON_CONVERGENCE", 1e-7);
     /*- Maximum iteration number in pole searching -*/

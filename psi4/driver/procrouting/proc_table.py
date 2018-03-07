@@ -34,7 +34,7 @@ from __future__ import absolute_import
 
 from . import sapt
 from . import proc
-from . import interface_cfour
+#from . import interface_cfour
 # never import wrappers or aliases into this file
 
 # Procedure lookup tables
@@ -220,12 +220,12 @@ for ssuper in proc.dft_funcs.superfunctional_list:
       if not ssuper.needs_xc():
             procedures['hessian'][ssuper.name().lower()] = proc.run_scf_hessian
 
-# Integrate CFOUR with driver routines
-for ssuper in interface_cfour.cfour_list():
-      procedures['energy'][ssuper.lower()] = interface_cfour.run_cfour
-
-for ssuper in interface_cfour.cfour_gradient_list():
-      procedures['gradient'][ssuper.lower()] = interface_cfour.run_cfour
+## Integrate CFOUR with driver routines
+#for ssuper in interface_cfour.cfour_list():
+#      procedures['energy'][ssuper.lower()] = interface_cfour.run_cfour
+#
+#for ssuper in interface_cfour.cfour_gradient_list():
+#      procedures['gradient'][ssuper.lower()] = interface_cfour.run_cfour
 
 # dictionary to register pre- and post-compute hooks for driver routines
 hooks = dict((k1, dict((k2, []) for k2 in ['pre', 'post'])) for k1 in ['energy', 'optimize', 'frequency'])

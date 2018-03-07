@@ -33,8 +33,9 @@ import uuid
 
 import numpy as np
 
-import qcdb
-from qcdb.interface_dftd3 import run_dftd3
+#import qcdb
+#from qcdb.interface_dftd3 import run_dftd3
+#from qcdb.interface_gcp import run_gcp
 
 from psi4 import core
 from . import optproc
@@ -51,13 +52,16 @@ def pybuild_basis(mol,
                   puream=-1,
                   return_atomlist=False,
                   quiet=False):
+    import qcdb
+
     if key == 'ORBITAL':
         key = 'BASIS'
 
     def _resolve_target(key, target):
         """Figure out exactly what basis set was intended by (key, target)
         """
-        horde = qcdb.libmintsbasisset.basishorde
+        #horde = qcdb.libmintsbasisset.basishorde
+        horde = qcdb.basishorde
         if not target:
             if not key:
                 key = 'BASIS'
@@ -220,17 +224,25 @@ core.VBase.get_np_xyzw = get_np_xyzw
 
 ## Python other helps
 
-core.Molecule.run_dftd3 = qcdb.interface_dftd3.run_dftd3
-core.Molecule.run_gcp = qcdb.interface_gcp.run_gcp
+#core.Molecule.run_dftd3 = qcdb.interface_dftd3.run_dftd3
+#core.Molecule.run_gcp = qcdb.interface_gcp.run_gcp
 
 
 def set_options(options_dict):
     """
     Sets Psi4 global options from an input dictionary.
     """
+    optionre = re.compile(r'\A(?P<module>\w+__)?(?P<option>\w+)\Z', re.IGNORECASE)
 
     for k, v, in options_dict.items():
-        core.set_global_option(k.upper(), v)
+        mobj = optionre.match(k)
+        module = mobj.group('module').upper() if mobj.group('module') else None
+        option = mobj.group('option').upper()
+
+        if module:
+            core.set_local_option(module, option, v)
+        else:
+            core.set_global_option(option, v)
 
 
 def set_module_options(module, options_dict):
@@ -350,6 +362,7 @@ def basis_helper(block, name='', key='BASIS', set_option=True):
 
         return basstrings
 
+    import qcdb
     anon.__name__ = 'basisspec_psi4_yo__' + cleanbas
     qcdb.libmintsbasisset.basishorde[name.upper()] = anon
     if set_option:

@@ -225,8 +225,8 @@ def scf_iterate(self, e_conv=None, d_conv=None):
             upcm, Vpcm = self.get_PCM().compute_PCM_terms(Dt, calc_type)
             SCFE += upcm
             self.push_back_external_potential(Vpcm)
-        self.set_variable("PCM POLARIZATION ENERGY", upcm)
-        self.set_energies("PCM Polarization", upcm)
+            self.set_variable("PCM POLARIZATION ENERGY", upcm)
+            self.set_energies("PCM Polarization", upcm)
 
         core.timer_on("HF: Form F")
         self.form_F()

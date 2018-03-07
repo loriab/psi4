@@ -42,7 +42,6 @@ import shutil
 import inspect
 import subprocess
 
-from psi4.driver import qcdb
 from psi4.driver import p4util
 from psi4.driver.molutil import *
 from psi4.driver.p4util.exceptions import *
@@ -109,6 +108,7 @@ def run_cfour(name, **kwargs):
     lowername = name.lower()
     internal_p4c4_info = {}
     return_wfn = kwargs.pop('return_wfn', False)
+    import qcdb
 
     # Make sure the molecule the user provided is the active one
     molecule = kwargs.pop('molecule', core.get_active_molecule())
@@ -413,16 +413,19 @@ def run_cfour(name, **kwargs):
 
 def cfour_list():
     """Form list of Cfour :py:func:`~driver.energy` arguments."""
+    import qcdb
     return qcdb.cfour.cfour_list()
 
 
 def cfour_gradient_list():
     """Form list of Cfour analytic :py:func:`~driver.gradient` arguments."""
+    import qcdb
     return qcdb.cfour.cfour_gradient_list()
 
 
 def cfour_psivar_list():
     """Form dictionary of :ref:`PSI Variables <apdx:cfour_psivar>` set by Cfour methods."""
+    import qcdb
     return qcdb.cfour.cfour_psivar_list()
 
 
@@ -431,6 +434,7 @@ def write_zmat(name, dertype, molecule):
     active molecule, current keyword settings, and cfour {...} block.
 
     """
+    import qcdb
     # Handle memory
     mem = int(0.000001 * core.get_memory())
     if mem == 524:

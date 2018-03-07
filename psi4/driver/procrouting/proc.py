@@ -1352,6 +1352,9 @@ def scf_helper(name, post_scf=True, **kwargs):
     core.set_variable("SCF TOTAL ENERGY", e_scf)
     core.set_variable("CURRENT ENERGY", e_scf)
     core.set_variable("CURRENT REFERENCE ENERGY", e_scf)
+    scf_wfn.set_variable("SCF TOTAL ENERGY", e_scf)
+    scf_wfn.set_variable("CURRENT ENERGY", e_scf)
+    scf_wfn.set_variable("CURRENT REFERENCE ENERGY", e_scf)
 
     # We always would like to print a little dipole information
     if kwargs.get('scf_do_dipole', True):

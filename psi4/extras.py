@@ -64,10 +64,7 @@ def get_input_directory():
 
 # Add-Ons
 def _CMake_to_Py_boolean(cmakevar):
-    if cmakevar.upper() in ["1", "ON", "YES", "TRUE", "Y"]:
-        return True
-    else:
-        return False
+    return cmakevar.upper() in ["1", "ON", "YES", "TRUE", "Y"]
 
 
 def _psi4_which(command):

@@ -32,7 +32,7 @@ import numpy as np
 
 from psi4 import core
 from psi4.driver import p4util
-from psi4.driver import qcdb
+#from psi4.driver import qcdb
 from psi4.driver.p4util import solvers
 from .augmented_hessian import ah_iteration
 from .. import proc_util

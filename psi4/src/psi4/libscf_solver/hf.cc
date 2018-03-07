@@ -254,6 +254,7 @@ void HF::common_init() {
 
     // -D is zero by default
     variables_["-D Energy"] = 0.0;
+    variables_.erase("-D Energy");
     energies_["-D"] = 0.0;
 
     // CPHF info

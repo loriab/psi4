@@ -36,12 +36,10 @@ import math
 import numpy as np
 
 from psi4 import core
-from psi4.driver import qcdb
 from psi4.driver import p4util
 from psi4.driver import driver_util
 from psi4.driver import constants
 from psi4.driver.p4util.exceptions import *
-from psi4.driver.procrouting.interface_cfour import cfour_psivar_list
 
 zeta_values = ['d', 't', 'q', '5', '6', '7', '8']
 zeta_val2sym = {k + 2: v for k, v in zip(range(7), zeta_values)}
@@ -62,6 +60,8 @@ def _expand_bracketed_basis(basisstring, molecule=None):
     8] or non-Dunning sets or non-findable .gbs sets.
 
     """
+    import qcdb
+
     BSET = []
     ZSET = []
     legit_compound_basis = re.compile(r'^(?P<pre>.*cc-.*)\[(?P<zeta>[dtq2345678,]*)\](?P<post>.*z)$', re.IGNORECASE)
@@ -527,7 +527,8 @@ def return_energy_components():
                                       'MP%s TOTAL ENERGY' % (str(mplevel2))
 
     # Integrate CFOUR methods
-    VARH.update(cfour_psivar_list())
+    #from psi4.driver.procrouting.interface_cfour import cfour_psivar_list
+    #VARH.update(cfour_psivar_list())
     return VARH
 
 VARH = return_energy_components()

@@ -30,7 +30,7 @@ from __future__ import print_function
 import re
 
 from psi4 import core
-from psi4.driver import qcdb
+#from psi4.driver import qcdb
 from psi4.driver import p4util
 from psi4.driver.p4util.exceptions import *
 from psi4.driver.procrouting import *
@@ -129,6 +129,7 @@ def parse_arbitrary_order(name):
     """
 
     name = name.lower()
+    mtdlvl_mobj = re.match(r"""\A(?P<method>[a-z]+)(?P<level>\d+)\Z""", name)
 
     # matches 'mrccsdt(q)'
     if name.startswith('mrcc'):
@@ -172,24 +173,23 @@ def parse_arbitrary_order(name):
             'sdtq-3'      : { 'method': 8, 'order':  4, 'fullname': 'CCSDTQ-3'     },
             'sdtqp-3'     : { 'method': 8, 'order':  5, 'fullname': 'CCSDTQP-3'    },
             'sdtqph-3'    : { 'method': 8, 'order':  6, 'fullname': 'CCSDTQPH-3'   }
-        }
+        }  # yapf: disable
 
         # looks for 'sdt(q)' in dictionary
         if ccfullname in methods:
             return 'mrcc', methods[ccfullname]
         else:
-            raise ValidationError('MRCC method \'%s\' invalid.' % (name))
+            raise ValidationError('Invalid MRCC method ({})'.format(name))
 
-    elif re.match(r'^[a-z]+\d+$', name):
-        decompose = re.compile(r'^([a-z]+)(\d+)$').match(name)
-        namestump = decompose.group(1)
-        namelevel = int(decompose.group(2))
+    elif mtdlvl_mobj:
+        namestump = mtdlvl_mobj.group('method')
+        namelevel = int(mtdlvl_mobj.group('level'))
 
         if namestump in ['mp', 'zapt', 'ci']:
-            # Let mp2, mp3, mp4 pass through to select functions
+            # let mp2, mp3, mp4 pass through to select functions
             if namestump == 'mp' and namelevel in [2, 3, 4]:
                 return name, None
-            # Otherwise return method and order
+            # otherwise return method and order
             else:
                 return namestump, namelevel
         else:
