@@ -240,7 +240,8 @@ def process_extract_command(matchobj):
     name = matchobj.group(2)
     result = matchobj.group(0)
     result += '%s%s.set_name("%s")' % (spaces, name, name)
-    result += "\n%score.set_active_molecule(%s)" % (spaces, name)
+    #result += "\n%score.set_active_molecule(%s)" % (spaces, name)
+    result += '\n%sactivate(%s)' % (spaces, name)
     result += '\n%score.IO.set_default_namespace("%s")' % (spaces, name)
 
     return result
@@ -731,14 +732,28 @@ def process_input(raw_input, print_level=1):
     imports += 'from psi4.driver.gaussian_n import *\n'
     imports += 'from psi4.driver.frac import ip_fitting, frac_traverse\n'
     imports += 'from psi4.driver.aliases import *\n'
-    imports += 'from psi4.driver.driver_cbs import *\n'
+    #imports += 'from psi4.driver.driver_cbs import *\n'
     imports += 'from psi4.driver.wrapper_database import database, db, DB_RGT, DB_RXN\n'
     imports += 'from psi4.driver.wrapper_autofrag import auto_fragments\n'
     imports += 'from psi4.driver.constants.physconst import *\n'
     imports += 'psi4_io = core.IOManager.shared_object()\n'
 
     manip = """energy=qcdb.energy\n"""
+    manip += """properties=qcdb.properties\n"""
     manip += """set_molecule=qcdb.set_molecule\n"""
+    manip += """activate = qcdb.activate\n"""
+    manip += """get_variable=qcdb.get_variable\n"""
+    manip += """def _glob_opt_transl(o, v):\n"""
+    manip += """    qcdb.set_options({'psi4_' + o: v})\n"""
+    manip += """def _locl_opt_transl(m, o, v):\n"""
+    manip += """    qcdb.set_options({'psi4_' + m + '__' + o: v})\n"""
+    manip += """core.set_global_option=_glob_opt_transl\n"""
+    manip += """core.set_local_option=_locl_opt_transl\n"""
+    manip += """cbs = qcdb.cbs\n"""
+    manip += """cbs_helpers = qcdb.cbs_helpers\n"""
+    manip += """scf_xtpl_helgaker_3 = qcdb.cbs_helpers.scf_xtpl_helgaker_3\n"""
+    manip += """hessian=qcdb.hessian\n"""
+    manip += """\n"""
 
     # psirc (a baby PSIthon script that might live in ~/.psi4rc)
     psirc_file = os.path.expanduser('~') + os.path.sep + '.psi4rc'

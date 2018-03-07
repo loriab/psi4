@@ -221,7 +221,7 @@ def compare_values(expected, computed, digits, label, exitonfail=True):
     else:
         thresh = digits
         message = ("\t%s: computed value (%f) does not match (%f) to %f digits." % (label, computed, expected, digits))
-    if abs(expected - computed) > thresh:
+    if abs(float(expected) - float(computed)) > thresh:
         print(message)
         if exitonfail:
             raise TestComparisonError(message)

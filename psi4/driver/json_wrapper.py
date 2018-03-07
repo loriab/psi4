@@ -216,19 +216,25 @@ def run_json(json_data):
 
         val, wfn = methods_dict[json_data["driver"]](*args, **kwargs)
 
-        if isinstance(val, (float, int)):
-            json_data["return_value"] = val
-        elif isinstance(val, (core.Matrix, core.Vector)):
-            json_data["return_value"] = val.to_serial()
-        else:
-            raise TypeError("Unrecognized return value of type %s\n" % type(val))
-
+        json_data["return_value"] = serial_safe(val)
         json_data["variables"] = core.get_variables()
         json_data["psivars"] = wfn.variables()
+        json_data["psiarrays"] = {k: serial_safe(v) for k, v in wfn.arrays().items()}
+        
+        json_data["psivars"]["CURRENT ENERGY"] = wfn.energy()
+        if wfn.gradient() is not None:
+            json_data["psiarrays"]["CURRENT GRADIENT"] = serial_safe(wfn.gradient())
+        if wfn.hessian() is not None:
+            json_data["psiarrays"]["CURRENT HESSIAN"] = serial_safe(wfn.hessian())
+    
+        json_data['misc'] = check_Pe_vs_wfn(wfn, json_data["driver"])
         json_data["success"] = True
 
+        #print('psi4.run_json RETURN')
+        #pprint.pprint(json_data)
     except Exception as error:
         json_data["error"] += repr(error)
+        json_data["error"] += str(error)
         json_data["success"] = False
 
     if return_output:
@@ -236,4 +242,50 @@ def run_json(json_data):
             json_data["raw_output"] = f.read()
         os.unlink(outfile)
 
+    print('<<< bson')
+    import bson
+    jpsi4rec = bson.dumps(json_data)
+    #print(jpsi4rec)
+    psi4rec = bson.loads(jpsi4rec)
+    #print(psi4rec)
+    print('bson >>>')
+
+    #print('nearly there json')
+    #import json
+    #jpsi4rec = json.dumps(json_data)
+
     return json_data
+
+
+def serial_safe(val):
+    if isinstance(val, (float, int)):
+        return val
+    elif isinstance(val, (core.Matrix, core.Vector)):
+        return val.to_serial()
+    else:
+        raise TypeError("Unrecognized return value of type %s\n" % type(val))
+
+
+def check_Pe_vs_wfn(wfn, driver):
+    ew = wfn.energy()
+    epe = core.get_variable('CURRENT ENERGY')
+    gw = wfn.gradient()
+    gpe = core.get_gradient()
+    hw = wfn.hessian()
+
+    text = ''
+    if abs(ew - epe) > 1.e-6:
+        text += 'ENERGY MISMATCH: {} (wfn) != {} (P::e)\n'.format(ew, epe)
+    if gw is not None and gpe is not None:
+        if gw.rms() - gpe.rms() > 1.e-5:
+            text += 'GRADIENT MISMATCH: {} (wfn) != {} (P::e)\n'.format(gw.rms(), gpe.rms())
+    if driver in ['optimize', 'gradient']:
+        if gw is None:
+            raise KeyError("G: wfn.gradient() MISSING!")
+    if driver in ['hessian', 'frequency']:
+        if hw is None:
+            raise KeyError("H: wfn.hessian() MISSING!")
+        if gw is None:
+            raise KeyError("H: wfn.gradient() MISSING!")
+    
+    return text

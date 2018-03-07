@@ -31,7 +31,6 @@
 import atexit
 import sys
 import os
-import json
 import argparse
 from argparse import RawTextHelpFormatter
 
@@ -209,6 +208,8 @@ if args["scratch"] is not None:
 
 # If this is a json call, compute and stop
 if args["json"]:
+    import json
+    import bson
 
     with open(args["input"], 'r') as f:
         json_data = json.load(f)
@@ -217,8 +218,11 @@ if args["json"]:
     psi4.extras.exit_printing()
     psi4.json_wrapper.run_json(json_data)
 
-    with open(args["input"], 'w') as f:
-        json.dump(json_data, f)
+#    with open(args["input"], 'w') as f:
+#        json.dump(json_data, f)
+
+    with open(args["input"], 'wb') as f:
+        f.write(bson.dumps(json_data))
 
     if args["output"] != "stdout":
         os.unlink(args["output"])
