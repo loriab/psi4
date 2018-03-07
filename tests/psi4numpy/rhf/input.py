@@ -5,7 +5,7 @@ import numpy as np
 import psi4
 
 # Benzene
-mol = psi4.geometry("""
+mol = psi4.set_molecule("""
 0 1
 O
 H 1 1.1

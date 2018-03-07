@@ -24,7 +24,7 @@ psi4.set_memory(int(1e9), False)
 psi4.core.set_output_file('output.dat', False)
 psi4.core.set_num_threads(4)
 
-mol = psi4.geometry("""
+mol = psi4.set_molecule("""
 O
 H 1 1.1
 H 1 1.1 2 104

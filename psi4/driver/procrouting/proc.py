@@ -2161,6 +2161,9 @@ def run_scf_hessian(name, **kwargs):
 
     ref_wfn.set_hessian(H)
 
+    # Clearly, add some logic when the reach of this fn expands
+    ref_wfn.set_array('HF TOTAL HESSIAN', H)
+
     # Write Hessian out.  This probably needs a more permanent home, too.
     # This is a drop-in replacement for the code that lives in findif
     if core.get_option('FINDIF', 'HESSIAN_WRITE'):

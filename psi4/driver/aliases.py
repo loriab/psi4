@@ -41,8 +41,6 @@ import re
 import math
 import warnings
 
-from psi4.driver import driver_cbs
-
 
 # Python procedures like these can be run directly from the input file or integrated
 # with the energy(), etc. routines by means of lines like those at the end
