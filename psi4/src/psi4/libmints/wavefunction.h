@@ -397,6 +397,8 @@ public:
     int nirrep() const { return nirrep_; }
     /// Returns the reference energy
     double reference_energy () const { return energy_; }
+    /// Sets the energy
+    void set_energy(double ene) { energy_ = ene; }
     /// Returns the frozen-core energy
     double efzc() const { return efzc_; }
     /// Sets the frozen-core energy
@@ -656,6 +658,7 @@ public:
     /// Get and set variables dictionary
     double get_variable(const std::string key);
     void set_variable(const std::string key, double value) { variables_[key] = value; }
+    void del_variable(const std::string key) { variables_.erase(key); }
     std::map<std::string, double> variables(void) { return variables_; }
 
     /// Get and set arrays dictionary

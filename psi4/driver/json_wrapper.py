@@ -161,7 +161,7 @@ def run_json(json_data):
     prov["version"] = psi4.__version__
     prov["routine"] = "psi4.run_json"
     prov["creator"] = "Psi4"
-    json_data["provenance"].append(prov)
+    json_data["provenance"] = prov
 
     # Check input
     for check in ["driver", "method", "molecule"]:

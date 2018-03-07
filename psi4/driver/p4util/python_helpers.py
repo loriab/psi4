@@ -236,7 +236,7 @@ def set_options(options_dict):
 
     for k, v, in options_dict.items():
         mobj = optionre.match(k)
-        module = mobj.group('module').upper() if mobj.group('module') else None
+        module = mobj.group('module').upper()[:-2] if mobj.group('module') else None
         option = mobj.group('option').upper()
 
         if module:
