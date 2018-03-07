@@ -200,7 +200,8 @@ def cpscf_linear_response(wfn, *args, **kwargs):
 
             output.append(buf)
 
-    _print_output(complete_dict, output)
+    # guess I'm pulling a Rollin - print_output also sets psivars on wfn
+    _print_output(complete_dict, output, wfn)
 
     return output
 
@@ -221,7 +222,7 @@ def _print_header(complete_dict, n_user):
         core.print_out('    {} user-supplied vector(s)\n'.format(n_user))
 
 
-def _print_matrix(descriptors, content, title):
+def _print_matrix(descriptors, content, title, wfn):
     length = len(descriptors)
 
     matrix_header = '         ' + ' {:^10}' * length + '\n'
@@ -236,10 +237,11 @@ def _print_matrix(descriptors, content, title):
             # Set the name
             var_name = title + " " + descriptors[i] + descriptors[j]
             core.set_variable(var_name, content[i, j])
+            wfn.set_variable(var_name, content[i, j])
         core.print_out('\n')
 
 
-def _print_output(complete_dict, output):
+def _print_output(complete_dict, output, wfn):
     core.print_out('\n   ==> Response Properties <==\n')
 
     for i, prop in enumerate(complete_dict):
@@ -247,5 +249,5 @@ def _print_output(complete_dict, output):
             core.print_out('\n    => {} <=\n\n'.format(prop['name']))
             directions = prop['printout_labels']
             var_name = prop['name'].upper().replace("IES", "Y")
-            _print_matrix(directions, output[i], var_name)
+            _print_matrix(directions, output[i], var_name, wfn)
 

@@ -985,6 +985,7 @@ void OEProp::compute_multipoles(int order, bool transition)
             /*- Process::environment.globals["32-POLE XXXXX"] -*/
             /*- Process::environment.globals["32-POLE XXXXY"] -*/
             Process::environment.globals[upper_name] = tot;
+            wfn_->set_variable(upper_name, tot);
             ++address;
         }
         outfile->Printf( "\n");
@@ -1183,6 +1184,7 @@ void OEProp::compute_esp_at_nuclei()
                 atom1+1, mol->label(atom1).c_str(), nuc+elec);
         /*- Process::environment.globals["ESP AT CENTER n"] -*/
         Process::environment.globals[s.str()] = nuc+elec;
+        wfn_->set_variable(s.str(), nuc + elec);
         (*nesps)[atom1] = nuc+elec;
     }
     wfn_->set_esp_at_nuclei(nesps);
@@ -1272,12 +1274,15 @@ void OEProp::compute_dipole(bool transition)
     std::stringstream s;
     s << title_ << " DIPOLE X";
     Process::environment.globals[s.str()] = de[0]*dfac;
+    wfn_->set_variable(s.str(), de[0]*dfac);
     s.str(std::string());
     s << title_ << " DIPOLE Y";
     Process::environment.globals[s.str()] = de[1]*dfac;
+    wfn_->set_variable(s.str(), de[1]*dfac);
     s.str(std::string());
     s << title_ << " DIPOLE Z";
     Process::environment.globals[s.str()] = de[2]*dfac;
+    wfn_->set_variable(s.str(), de[2]*dfac);
 
 
 }
@@ -1347,7 +1352,7 @@ void OEProp::compute_quadrupole(bool transition)
 
     // Print multipole components
     double dfac = pc_dipmom_au2debye * pc_bohr2angstroms;
-    outfile->Printf( "  %sQuadrupole Moment: [D Å]\n", (transition ? "Transition " : ""));
+    outfile->Printf( "  %sQuadrupole Moment: [D A]\n", (transition ? "Transition " : ""));
     outfile->Printf( "    XX: %10.4lf     YY: %10.4lf     ZZ: %10.4lf\n", \
        qe[0]*dfac, qe[3]*dfac, qe[5]*dfac);
     outfile->Printf( "    XY: %10.4lf     XZ: %10.4lf     YZ: %10.4lf\n", \
@@ -1355,7 +1360,7 @@ void OEProp::compute_quadrupole(bool transition)
     outfile->Printf( "\n");
 
     double dtrace = (1.0 / 3.0) * (qe[0] + qe[3] + qe[5]);
-    outfile->Printf( "  Traceless %sQuadrupole Moment: [D Å]\n", (transition ? "Transition " : ""));
+    outfile->Printf( "  Traceless %sQuadrupole Moment: [D A]\n", (transition ? "Transition " : ""));
     outfile->Printf( "    XX: %10.4lf     YY: %10.4lf     ZZ: %10.4lf\n", \
        (qe[0]-dtrace)*dfac, (qe[3]-dtrace)*dfac, (qe[5]-dtrace)*dfac);
     outfile->Printf( "    XY: %10.4lf     XZ: %10.4lf     YZ: %10.4lf\n", \
@@ -1366,21 +1371,27 @@ void OEProp::compute_quadrupole(bool transition)
     std::stringstream s;
     s << title_ << " QUADRUPOLE XX";
     Process::environment.globals[s.str()] = qe[0]*dfac;
+    wfn_->set_variable(s.str(), qe[0]*dfac);
     s.str(std::string());
     s << title_ << " QUADRUPOLE YY";
     Process::environment.globals[s.str()] = qe[3]*dfac;
+    wfn_->set_variable(s.str(), qe[3]*dfac);
     s.str(std::string());
     s << title_ << " QUADRUPOLE ZZ";
     Process::environment.globals[s.str()] = qe[5]*dfac;
+    wfn_->set_variable(s.str(), qe[5]*dfac);
     s.str(std::string());
     s << title_ << " QUADRUPOLE XY";
     Process::environment.globals[s.str()] = qe[1]*dfac;
+    wfn_->set_variable(s.str(), qe[1]*dfac);
     s.str(std::string());
     s << title_ << " QUADRUPOLE XZ";
     Process::environment.globals[s.str()] = qe[2]*dfac;
+    wfn_->set_variable(s.str(), qe[2]*dfac);
     s.str(std::string());
     s << title_ << " QUADRUPOLE YZ";
     Process::environment.globals[s.str()] = qe[4]*dfac;
+    wfn_->set_variable(s.str(), qe[4]*dfac);
 
 
 }

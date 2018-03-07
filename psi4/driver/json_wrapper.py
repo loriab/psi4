@@ -43,7 +43,7 @@ from psi4 import core
 methods_dict = {
     'energy': driver.energy,
     'gradient': driver.gradient,
-    'property': driver.properties,
+    'properties': driver.properties,
     'optimize': driver.optimize,
     'hessian': driver.hessian,
     'frequency': driver.frequency,
