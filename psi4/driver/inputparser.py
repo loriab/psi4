@@ -753,6 +753,7 @@ def process_input(raw_input, print_level=1):
     manip += """cbs_helpers = qcdb.cbs_helpers\n"""
     manip += """scf_xtpl_helgaker_3 = qcdb.cbs_helpers.scf_xtpl_helgaker_3\n"""
     manip += """hessian=qcdb.hessian\n"""
+    manip += """gradient=qcdb.gradient\n"""
     manip += """\n"""
 
     # psirc (a baby PSIthon script that might live in ~/.psi4rc)

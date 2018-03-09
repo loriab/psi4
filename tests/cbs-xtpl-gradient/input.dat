@@ -37,7 +37,7 @@ compare_values(nucenergy_ref, he_dimer.nuclear_repulsion_energy(), 9, "Nuclear r
 # SCF TESTS
 
 scf_dz = gradient('SCF/cc-pVDZ')
-compare_matrices(ref_scf_dz, scf_dz, 6, "SCF/cc-pVDZ Gradient")  #TEST
+compare_matrices(ref_scf_dz, psi4.Matrix.from_array(scf_dz), 6, "[1] SCF/cc-pVDZ Gradient")  #TEST
 
 scf_tz = gradient('SCF/cc-pVTZ', dertype=0)
 compare_matrices(ref_scf_tz, scf_tz, 6, "SCF/cc-pVTZ Gradient, dertype=0")  #TEST
@@ -55,7 +55,7 @@ compare_matrices(ref_scf_dtz, scf_dtz, 6, "SCF/cc-pV[DT]Z Gradient, dertype=1") 
 
 # MP2 TESTS
 mp2_dtz = gradient('MP2/cc-pV[DT]Z')
-compare_matrices(ref_mp2_dtz, mp2_dtz, 6, "MP2/cc-pV[DT]Z Gradient")  #TEST
+compare_matrices(ref_mp2_dtz, psi4.Matrix.from_array(mp2_dtz), 6, "[6] MP2/cc-pV[DT]Z Gradient")  #TEST
 
 mp2_dtz = gradient('MP2/cc-pV[DT]Z', dertype='energy')
 compare_matrices(ref_mp2_dtz, mp2_dtz, 6, "MP2/cc-pV[DT]Z Gradient, dertype=0")  #TEST
