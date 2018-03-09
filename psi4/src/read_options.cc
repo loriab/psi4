@@ -156,6 +156,8 @@ int read_options(const std::string &name, Options & options, bool suppress_print
   molecule, options, percent blocks, etc. Access through ``cfour {...}``
   block. -*/
   options.add_str_i("LITERAL_CFOUR", "");
+  options.add_str_i("LITERAL_NWCHEM", "");
+  options.add_str_i("LITERAL_GAMESS", "");
   /*- When several modules can compute the same methods and the default
   routing is not suitable, this targets a module. ``CCENERGY`` covers
   CCHBAR, etc. ``OCC`` covers OCC and DFOCC. -*/
@@ -4404,6 +4406,288 @@ int read_options(const std::string &name, Options & options, bool suppress_print
       options.add_int("CFOUR_ZFIELD", 0);
 
   }
+    if (name == "NWCHEM"|| options.read_globals()) {
+
+/*- MODULEDESCRIPTION Interface to NWCHEM program
+ *  Keyword descriptions taken from the
+ *  NWChem Website <http://www.nwchem-sw.org/index.php/Release66:NWChem_Documentation>
+ *   and extended by interface comments.        -*/
+
+      /*- SUBSECTION Psi4 Control of NWCHEM -*/
+
+      /*- Sets the OMP_NUM_THREADS environment variable before calling NWCHEM.
+ *     If the environment variable :envvar:`OMP_NUM_THREADS` is set prior to calling Psi4 then
+ *     that value is used. When set, this option overrides everything. Be aware
+ *     the ``-n`` command-line option described in section :ref:`sec:threading`
+ *     does not affect NWCHEM.
+ *     !expert -*/
+      options.add_int("NWCHEM_OMP_NUM_THREADS", 1);
+      /*- Do translate set Psi4 options to their nwchem counterparts. -*/
+      options.add_bool("TRANSLATE_PSI4", true);
+
+      /*- Specifies the molecular charge.
+ *  **Psi4 Interface:** Keyword set from active molecule. -*/
+      options.add_int("NWCHEM_CHARGE", 0);
+      /*- Specifies memory allocation. Memory can be specified to stack, heap, global. 
+*         Default is "total 400 mb". Memory can be verified through "verify" keyword.  -*/
+      options.add("NWCHEM_MEMORY", new ArrayType());
+      /*- NWChem Relativistic all-electron approximations below -*/
+      options.add("NWCHEM_RELATIVISTIC", new ArrayType());
+
+      /*- Subsection : NWChem SCF options -*/
+      /*- Specifies SCF reference wave function -*/
+      options.add_str("NWCHEM_SCF", "RHF", "RHF UHF ROHF");
+      /*- Specifies the number of open shell. singlet is nopen = 0 -*/
+      options.add_int("NWCHEM_SCF_NOPEN", 0);
+      /*- Speicifes SCF convergence threshold-*/
+      options.add_double("NWCHEM_SCF_THRESH",1.e-4);
+      /*- Specifies max SCF iteration -*/
+      options.add_int("NWCHEM_SCF_MAXITER", 20);
+      /*-  SCF DIIS convergence on or off, default is off -*/
+      options.add_str("NWCHEM_SCF_DIIS", "FALSE", "FALSE TRUE");
+      /*-  SCF DIRECT calculation on or off, default is off -*/
+      options.add_str("NWCHEM_SCF_DIRECT", "FALSE", "FALSE TRUE");
+      /*-  SCF SEMIDIRECT calculation.
+*      This directive can be used to control the default semidirect calculations
+*      by defining the amount of disk space and the cache memory size.
+*      Filesize, memsize, and filename can be specified in array type. 
+*      Check NWChem manual for detail.  -*/
+      options.add("NWCHEM_SCF_SEMIDIRECT", new ArrayType());
+      /*- Speifies enables/disables the use of symmetry
+ *        to speed up Fock matrix construction in SCF, default is on -*/
+      options.add_str("NWCHEM_SCF_SYM", "ON", "ON OFF");
+      /*- Speifies enables/disables to force symmetry adaptation of the molecular orbitals in SCF.
+*         default is on -*/
+      options.add_str("NWCHEM_SCF_ADAPT", "ON", "ON OFF");
+      /*- Specifies the variable tol2e, the integral screening threshold
+*         for the evaluation of the energy and related Fock-like matrices
+*         Default = min(1.e-7, 0.01*thresh)                  -*/
+      options.add_double("NWCHEM_SCF_TOL2E", 1.e-7);
+      /*- Specifies the source and destination of the molecular orbital vectors.
+*         Input type has to be array type. 
+*         Refer NWChem manual for available options.
+*         e.g) 
+*          set nwchem_scf_vectors [input, try1.movecs, output, try2.movecs, ...] -*/
+      options.add("NWCHEM_SCF_VECTORS", new ArrayType());
+      /*-  SCF performance profile true or false, default is false -*/
+      options.add_str("NWCHEM_SCF_PROFILE", "FALSE", "FALSE TRUE");
+      /*-  Speicifies controlling Newton=Raphson(NR). Default is 0.1 -*/
+      options.add_double("NWCHEM_SCF_NR", 0.1);
+      /*-  Speicifies level-shifting to obtain a positive-definite preconditioning matrix 
+*          for the SCF solution procedure. Separate level shifts can be set for PCG and NR approach.
+*          Input type is array type. Default: level pcg 20.0 0.5 0.0 nr 0.0 0.0 0.0      -*/
+      options.add("NWCHEM_SCF_LEVEL", new ArrayType());
+      /*- SCF (NO)print options. Check "print control" section of NWChem manual for detail. 
+*         Space should be replaced by ",".   
+*         e.g) set nwchem_scf_print [atomic, scf, debug] => print "atomic scf" debug -*/
+      options.add("NWCHEM_SCF_PRINT", new ArrayType());
+      options.add("NWCHEM_SCF_NOPRINT", new ArrayType());
+
+      /*- Subsection : NWChem MP2 options -*/       
+      /*- Increase the precision in the MP2 energy and gradients.
+      This option increases the precision to which both the SCF (from 10-6 to 10-8)
+          and CPHF (from 10-4 to 10-6) are solved,
+          and also tightens thresholds for computation of the AO and MO integrals (from 10-9 to 10-11)
+      within the MP2 code.-*/
+      options.add_str("NWCHEM_MP2_TIGHT", "FALSE", "FALSE TRUE");
+      /*- Specifies enables/disables freezing orbitals. Default is no frozen orbitals.-*/
+      options.add("NWCHEM_MP2_FREEZE", new ArrayType());
+      /*- Specifies scaling factors using keywords fss (same spin factor) and fos (opposite spin factor).
+      First turn on (true) "scs" keyword and specifies fss and fos values on the next lines.
+      e.g)
+      set {
+      ...
+      nwchem_mp2_scs true
+      nwchem_mp2_fss *value*
+          nwchem_mp2_fos *value*
+          ...
+      }
+          Default values are fss=1.2, fos=0.3 for MP2 -*/
+      options.add_str("NWCHEM_MP2_SCS", "TRUE", "TRUE FALSE");
+      options.add_double("NWCHEM_MP2_FSS", 1.2);
+      options.add_double("NWCHEM_MP2_FOS", 0.3);
+
+      /*- Subsection : NWChem DFT options -*/
+      /*-  RDFT, RODFT, UDFT, ODFT(Open shell but singlet)  -*/
+      options.add_str("NWCHEM_DFT", "", "RODFT ODFT");
+      /*- Specifies DFT exchange and correlational functional -*/
+      options.add("NWCHEM_DFT_XC", new ArrayType());    
+      /*- Specifies DFT grid - [number of radical points, integer of iangquad] 
+*       Available numbers of iangquad : 1 - 29  
+*       (specifying a certain number of spheircal points) 
+*       Reference: NWChem 6.6 manual (p134) list of lebedev quadratures -*/
+      options.add("NWCHEM_DFT_GRID", new ArrayType());
+      /*- Specifies DFT convergence of 1)energy, 2)density, or 3)gradient. 
+          Also other options (dampon, dampoff, diison, levlon, etc) are available under this directive. 
+          Refer NWChem manual. Value type has to be array type. -*/
+      options.add("NWCHEM_DFT_CONVERGENCE", new ArrayType());
+      /*- Specifies DFT iterations. -*/
+      options.add_int("NWCHEM_DFT_ITERATIONS", 30);  
+      /*- Specifies Multiplicity. -*/
+      options.add_int("NWCHEM_DFT_MULT", 1);
+      /*- Specifies vectors directive same as that in the SCF module. -*/
+      options.add("NWCHEM_DFT_VECTORS", new ArrayType());
+      /*- Locking the ordering of orbitals true or false, default is false -*/
+      options.add_str("NWCHEM_DFT_MAX_OVL", "FALSE", "FALSE TRUE");
+      /*- Smear keyword allows fractional occupation of the MOs. -*/
+      options.add_double("NWCHEM_DFT_SMEAR", 0.001);
+      /*- Mulliken analysis of charge distribution. Default is false -*/
+      options.add_str("NWCHEM_DFT_MULLIKEN", "FALSE", "FALSE TRUE");
+      /*-  DFT DIRECT calculation true or false, default is false -*/
+      options.add_str("NWCHEM_DFT_DIRECT", "FALSE", "FALSE TRUE");
+      /*-  DFT SEMIDIRECT calculation. Same format as "NWCHEM_SCF_SEMIDIRECT". -*/
+      options.add("NWCHEM_DFT_SEMIDIRECT", new ArrayType());
+      /*-  DFT quadratic convergence algorithm true or false, default is false -*/
+      options.add_str("NWCHEM_DFT_CGMIN", "FALSE", "FALSE TRUE");
+      /*- Fukui indices analysis. Default is false -*/  
+      options.add_str("NWCHEM_DFT_FUKUI", "FALSE", "FALSE TRUE");
+      /*- Add dispersion to DFT functionals. -*/
+      options.add("NWCHEM_DFT_DISP", new ArrayType());
+      /*- DFT (NO)print options. Check "print control" section of NWChem manual for detail. 
+*         Space should be replaced by ",".   
+*         e.g) set nwchem_dft_print [all, vector, symmetries, high] => print "all vector symmetries" high -*/
+      options.add("NWCHEM_DFT_PRINT", new ArrayType());
+      options.add("NWCHEM_DFT_NOPRINT", new ArrayType());
+
+      /*- NWChem CCSD Section below -*/
+      /*- Speicifes CCSD convergence threshold-*/
+      options.add_double("NWCHEM_CCSD_THRESH",1.e-5);
+      /*- Speicifes CCSD maxiteration -*/
+      options.add_int("NWCHEM_CCSD_MAXITER", 20);
+        
+
+      /*- NWChem TCE Section below -*/
+      /*- Use DFT as TCE reference wave function. If not specified, default is SCF(HF).  -*/
+      options.add_str("NWCHEM_TCE_DFT", "FALSE", "FALSE TRUE");
+      /*- Set NWChem TCE ON/OFF. For CCSD&CCSD(T), default is off. For others, default is on. -*/
+      options.add_str("NWCHEM_TCE", "OFF", "ON OFF");
+      /*- Specifies TCE correlational models. MBP2=MP2, MBPT3=MP3, MBPT4=MP4. -*/
+      options.add_str("NWCHEM_TCE_MODULE", "", "LCCD CCD LCCSD CCSD CCSD_ACT LR-CCSD EACCSD IPCCSD CC2 CCSDT CCSDTA CCSDTQ CCSD(T) CCSD[T] CR-CCSD[T] CR-CCSD(T) CCSD(2)_T CCSD(2)_TQ CCSDT(2)_Q LR-CCSD(T) LR-CCSD(TQ)-1 CREOMSD(T) CREOM(T)AC QCISD CISD CISDT CISDTQ MBPT2 MBPT3 MBPT4");
+      /*- Speicifes TCE convergence threshold-*/
+      options.add_double("NWCHEM_TCE_THRESH",1.e-4);
+      /*- Speicifes TCE maxiteration -*/
+      options.add_int("NWCHEM_TCE_MAXITER", 100);
+      /*- Speicifes parallel I/O scheme -*/
+      options.add_str("NWCHEM_TCE_IO", "", "FORTRAN EAF GA SF REPLICATED DRA GA_EAF");
+      /*- Specifies the number iterations in which a DIIS extrapolation is performed 
+*         to accelerate the convergence of excitation amplitude. Default is 5.  -*/
+      options.add_int("NWCHEM_TCE_DIIS", 5);
+      /*- Sets frozen core/virtual approximation. Default is no frozen.  -*/
+      options.add("NWCHEM_TCE_FREEZE", new ArrayType());
+      /*- Speicifes the number of excited states. Default is 1. -*/
+      options.add_int("NWCHEM_TCE_NROOTS", 1);
+      /*- Speicifes the target root. Default is 1. -*/
+      options.add_int("NWCHEM_TCE_TARGET", 1);
+      /*- Speicifes the target symmetry. Default is None. -*/
+      options.add_str("NWCHEM_TCE_TARGETSYM", "");
+      /*- This option provides more economical way of storing 
+*      two-electron integrals used in CC calculation based on the RHF and ROHF references.
+*      Default is false. -*/
+      options.add_str("NWCHEM_TCE_2EORB", "FALSE", "TRUE FALSE");
+
+      /*- NWChem TDDFT Section below -*/
+      /*- Toggles the Tamm-Dancoff approximation. CIS means that Tamm-Dancoff approximation is used and the CIS 
+*       or Tamm-Dancoff TDDFT calculation is requested. RPA, which is the default, requests TDHF (RPA) or TDDFT calculation.-*/  
+      options.add_str("NWCHEM_TDDFT", "RPA", "RPA CIS");
+      /*- Specifies the number of excited states. The default value is 1. -*/
+      options.add_int("NWCHEM_TDDFT_NROOTS", 1);
+      /*- Specifies which excited state root is being used for the geometrical derivative calculation. The default value is 1. -*/
+      options.add_int("NWCHEM_TDDFT_TARGET", 1);
+      /*- Specifies the convergence threshold of Davidson iteration. Default is 1e-4. -*/
+      options.add_double("NWCHEM_TDDFT_THRESH",1.e-4);     
+      /*- Specifies the maximum number of Davidson iteration. The default value is 100. -*/ 
+      options.add_int("NWCHEM_TDDFT_MAXITER", 100);
+      /*- This keyword will result in the CI vectors being written out. By default this is false (off).-*/        
+      options.add_str("NWCHEM_TDDFT_CIVECS", "FALSE", "TRUE FALSE");
+      /*- This keyword suppresses the calculation of triplet excited states when it is true. Default is false-*/
+      options.add_str("NWCHEM_TDDFT_NOTRIPLET", "FALSE", "TRUE FALSE"); 
+    
+      /*- NWChem TASK Section below -*/     
+      /*- Specifies SCF task -*/
+      options.add_str("NWCHEM_TASK_SCF", "ENERGY", "ENERGY GRADIENT HESSIAN");
+      /*- Specifies MP2 (using a semi-direct algorithm) task -*/
+      options.add_str("NWCHEM_TASK_MP2", "ENERGY", "ENERGY GRADIENT HESSIAN");
+      /*- Specifies MP2 (using a full-direct algorithm) task -*/
+      options.add_str("NWCHEM_TASK_DIRECT_MP2", "ENERGY", "ENERGY GRADIENT HESSIAN");
+      /*- Specifies RIMP2 (using the RI approximation)) task -*/
+      options.add_str("NWCHEM_TASK_RIMP2", "ENERGY", "ENERGY GRADIENT HESSIAN");
+      /*- Specifies DFT task -*/
+      options.add_str("NWCHEM_TASK_DFT", "ENERGY", "ENERGY GRADIENT HESSIAN");
+      /*- Specifies TCE task -*/
+      options.add_str("NWCHEM_TASK_TCE", "ENERGY", "ENERGY GRADIENT HESSIAN");
+      /*- Specifies CCSD task -*/
+      options.add_str("NWCHEM_TASK_CCSD", "ENERGY", "ENERGY GRADIENT HESSIAN");
+      /*- Specifies CCSD(T) task -*/
+      options.add_str("NWCHEM_TASK_CCSD(T)", "ENERGY", "ENERGY GRADIENT HESSIAN");
+      /*- Specifies TDDFT task -*/ 
+      options.add_str("NWCHEM_TASK_TDDFT", "ENERGY", "ENERGY GRADIENT HESSIAN"); 
+        
+  }
+
+    if (name == "GAMESS"|| options.read_globals()) {
+
+/*- MODULEDESCRIPTION Interface to GAMESS program
+ *
+ *
+ *                   -*/
+
+      /*- SUBSECTION Psi4 Control of NWCHEM -*/
+
+      /*- Sets the OMP_NUM_THREADS environment variable before calling NWCHEM.
+ *           If the environment variable :envvar:`OMP_NUM_THREADS` is set prior to calling Psi4 then
+ *                     that value is used. When set, this option overrides everything. Be aware
+ *                               the ``-n`` command-line option described in section :ref:`sec:threading`
+ *                                         does not affect NWCHEM.
+ *                                                   !expert -*/
+//    options.add_int("NWCHEM_OMP_NUM_THREADS", 1);
+
+      /*- Do translate set Psi4 options to their nwchem counterparts. -*/
+      options.add_bool("TRANSLATE_PSI4", true);
+
+      /*- Specifies the AO basis used in the calculation.
+ *    **Psi4 Interface:** Recommended to use instead |mints__basis| for
+ *    larger basis set selection and greater flexibility. When |mints__basis|
+ *    used, |nwchem__nwchem_spherical| is set appropriately. -*/
+
+      /*- Specifies the molecular charge.
+ *       **Psi4 Interface:** Keyword set from active molecule. -*/
+      //options.add_int("GAMESS_MEMORY", 400);
+      
+      //$CONTRL group
+      options.add_str("GAMESS_CONTRL_SCFTYP", "RHF", "RHF UHF ROHF GVB MCSCF NONE");
+      options.add_str("GAMESS_CONTRL_DFTTYP", "NONE", "NONE B3LYP PBE0");
+      options.add_int("GAMESS_CONTRL_MPLEVL", 2);
+      options.add_str("GAMESS_CONTRL_CCTYP", "NONE", "NONE LCCD CCD CCSD(T) R-CC CR-CC CR-CCL CCSD(TQ) CR-CC(Q) EOM-CCSD CR-EOM CR-EOML IP-EOM2 IP-EOM3A EA-EOM2 EA-EOM3A");
+      options.add_str("GAMESS_CONTRL_RUNTYP", "ENERGY", "ENERGY GRADIENT HESSIAN"); //different set from cfour calc_level
+      options.add_str("GAMESS_CONTRL_CITYP", "NONE", "NONE CIS SFCIS ALDET ORMAS FSOCI GENCI GUGA");
+      options.add_int("GAMESS_CONTRL_MAXIT", 30); // psi4 keyword: maxiter
+      options.add_int("GAMESS_CONTRL_ICHARG", 0); // psi4 keyword: charge
+      options.add_int("GAMESS_CONTRL_MULT", 1); // psi4 keyword: charge
+      options.add_str("GAMESS_CONTRL_COORD", "UNIQUE", "UNIQUE HINT PRINAXIS ZMT ZMTMPC FRAGONLY");
+
+      options.add_int("GAMESS_SYSTEM_MWORDS", 400);
+    
+      options.add_double("GAMESS_SCF_CONV",1E-6); // psi4 keyword: d_convergence : Convergence criterion for SCF density (psi4 default 1.e-6)
+      options.add_double("GAMESS_SCF_THRESH",1E-4);
+      options.add_double("GAMESS_SCF_ETHRSH",0.5);
+      options.add_bool("GAMESS_SCF_DIRSCF", false);
+
+      options.add_int("GAMESS_MP2_NACORE", 0);
+      options.add_int("GAMESS_MP2_NBCORE", 0);
+
+      options.add_int("GAMESS_CCINP_NCORE", 0);
+
+      options.add_int("GAMESS_EOMINP_NSTATE", 1);
+
+      //number of radial points in the Euler-MacLaurin quadrature in the Lebedev grid.
+      //default=96 (in gamess) default=75 (in psi4, keyword dft_radial_points)
+      options.add_int("GAMESS_DFT_NRAD", 75);
+            //number of angular points in the Lebedev grids.
+      //default=302 (in gamess) default=302 (in psi4, keyword dft_spherical_points)
+      options.add_int("GAMESS_DFT_NLEB", 302);
+
+  }
+
     if (name == "EFP"|| options.read_globals()) {
         /*- MODULEDESCRIPTION Performs effective fragment potential
         computations through calls to Kaliman's libefp library. -*/
