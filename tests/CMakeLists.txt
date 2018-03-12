@@ -133,15 +133,15 @@ endif()
 
 # <<<  CFOUR  >>>
 
-find_program(CFOUR_EXECUTABLE
-             NAMES xcfour
-             DOC "Path to Stanton and Gauss's xcfour executable")
-
-if(CFOUR_EXECUTABLE)
-    add_subdirectory(cfour)
-    message(STATUS "${Cyan}Found CFOUR${ColourReset}: ${CFOUR_EXECUTABLE}")
-    message(STATUS "Adding test cases: Psi4 + CFOUR")
-endif()
+#find_program(CFOUR_EXECUTABLE
+#             NAMES xcfour
+#             DOC "Path to Stanton and Gauss's xcfour executable")
+#
+#if(CFOUR_EXECUTABLE)
+#    add_subdirectory(cfour)
+#    message(STATUS "${Cyan}Found CFOUR${ColourReset}: ${CFOUR_EXECUTABLE}")
+#    message(STATUS "Adding test cases: Psi4 + CFOUR")
+#endif()
 
 # <<<  CHEMPS2  >>>
 

@@ -750,10 +750,10 @@ def process_input(raw_input, print_level=1):
     manip += """core.set_global_option=_glob_opt_transl\n"""
     manip += """core.set_local_option=_locl_opt_transl\n"""
     manip += """cbs = qcdb.cbs\n"""
-    manip += """cbs_helpers = qcdb.cbs_helpers\n"""
-    manip += """scf_xtpl_helgaker_3 = qcdb.cbs_helpers.scf_xtpl_helgaker_3\n"""
+    manip += """scf_xtpl_helgaker_3 = qcdb.scf_xtpl_helgaker_3\n"""
     manip += """hessian=qcdb.hessian\n"""
     manip += """gradient=qcdb.gradient\n"""
+    manip += """optimize=qcdb.optking\n"""
     manip += """\n"""
 
     # psirc (a baby PSIthon script that might live in ~/.psi4rc)

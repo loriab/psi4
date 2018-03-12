@@ -242,17 +242,13 @@ def run_json(json_data):
             json_data["raw_output"] = f.read()
         os.unlink(outfile)
 
-    print('<<< bson')
+    #print('<<< bson')
     import bson
     jpsi4rec = bson.dumps(json_data)
     #print(jpsi4rec)
     psi4rec = bson.loads(jpsi4rec)
     #print(psi4rec)
-    print('bson >>>')
-
-    #print('nearly there json')
-    #import json
-    #jpsi4rec = json.dumps(json_data)
+    #print('bson >>>')
 
     return json_data
 
