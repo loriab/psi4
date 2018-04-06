@@ -44,6 +44,7 @@ import numpy as np
 from psi4.driver import driver_util
 from psi4.driver import driver_cbs
 from psi4.driver import driver_nbody
+from psi4.driver import driver_findif
 from psi4.driver import p4util
 from psi4.driver import qcdb
 from psi4.driver.procrouting import *
@@ -646,7 +647,7 @@ def gradient(name, **kwargs):
 
         # Obtain list of displacements
         # print("about to generate displacements")
-        displacements = core.fd_geoms_1_0(moleculeclone)
+        displacements = driver_findif.geoms_grad_from_energy(moleculeclone)
         # print(displacements)
         ndisp = len(displacements)
         # print("generated displacments")
@@ -752,7 +753,7 @@ def gradient(name, **kwargs):
 
         # Compute the gradient; last item in 'energies' is undisplaced
         core.set_local_option('FINDIF', 'GRADIENT_WRITE', True)
-        G = core.fd_1_0(molecule, energies)
+        G = driver_findif.comp_grad_from_energy(molecule, energies)
         G.print_out()
         wfn.set_gradient(G)
 
@@ -1358,7 +1359,7 @@ def hessian(name, **kwargs):
         moleculeclone = molecule.clone()
 
         # Obtain list of displacements
-        displacements = core.fd_geoms_freq_1(moleculeclone, irrep)
+        displacements = driver_findif.fd_geoms_freq_1(moleculeclone, irrep)
         moleculeclone.reinterpret_coordentry(False)
         moleculeclone.fix_orientation(True)
 
@@ -1502,7 +1503,7 @@ def hessian(name, **kwargs):
         moleculeclone = molecule.clone()
 
         # Obtain list of displacements
-        displacements = core.fd_geoms_freq_0(moleculeclone, irrep)
+        displacements = driver_findif.fd_geoms_freq_0(moleculeclone, irrep)
         moleculeclone.fix_orientation(True)
         moleculeclone.reinterpret_coordentry(False)
 

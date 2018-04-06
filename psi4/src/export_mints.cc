@@ -471,6 +471,7 @@ void export_mints(py::module& m)
         .def("transpose_this", &Matrix::transpose_this, "Transpose the matrix in-place")
         .def("transpose", &Matrix::transpose, "Creates a new matrix that is the transpose of this matrix")
         .def("add", matrix_one(&Matrix::add), "Adds a matrix to this matrix")
+        .def("add", matrix_set4(&Matrix::add), "Increments row m and column n of irrep h's block matrix by val.", py::arg("h"), py::arg("m"), py::arg("n"), py::arg("val"))
         .def("axpy", &Matrix::axpy, "Add to this matrix another matrix scaled by a", py::arg("a"), py::arg("X"))
         .def("subtract", matrix_one(&Matrix::subtract), "Substract a matrix from this matrix")
         .def("accumulate_product", matrix_two(&Matrix::accumulate_product),
@@ -613,6 +614,23 @@ void export_mints(py::module& m)
              "Returns a new Matrix object named name with default dimensions");
 //              py::arg("name"), py::arg("symmetry"));
 
+    py::class_<CdSalc::Component, std::shared_ptr<CdSalc::Component>>(
+        m, "SalcComponent", "Component of a Cartesian displacement SALC in the basis of atomic displacements.")
+        .def_readwrite("coef", &CdSalc::Component::coef, "The coefficient of the displacement")
+        .def_readwrite("atom", &CdSalc::Component::atom, "The index of the atom being displaced")
+        .def_readwrite("xyz", &CdSalc::Component::xyz, "The direction of tthe displacement, given by x as 1, y as 2, z as 3.");
+
+    py::class_<CdSalc, std::shared_ptr<CdSalc>>(
+        m, "CdSalc", "Cartesian displacement SALC")
+        .def("irrep", &CdSalc::irrep, "Return the irrep bit representation")
+        .def("irrep_index", [](const CdSalc& salc){return static_cast<int>(salc.irrep());},
+             "Return the irrep index")
+        .def("print", &CdSalc::print, "Print the irrep index and the coordinates of the SALC of Cartesian displacments.")
+        .def("__getitem__", [](const CdSalc& salc, size_t i){return salc.component(i);})
+        .def("__len__", [](const CdSalc& salc){return salc.ncomponent();})
+        .def("__iter__", [](const CdSalc& salc){return py::make_iterator(salc.get_components());},
+             py::keep_alive<0,1>());
+
     py::class_<CdSalcList, std::shared_ptr<CdSalcList>>(
         m, "CdSalcList", "Class for generating symmetry adapted linear combinations of Cartesian displacements")
         .def(py::init<std::shared_ptr<Molecule>, int, bool, bool>())
@@ -621,6 +639,11 @@ void export_mints(py::module& m)
              "Return a vector of matrices with the SALC symmetries. Dimensions determined by factory.",
              py::arg("basename"), py::arg("factory"))
         .def("salc_name", &CdSalcList::salc_name, "Return the name of SALC #i.", py::arg("i"))
+        .def("nirrep", &CdSalcList::nirrep, "Return the number of irreps")
+        .def("__getitem__", [](const CdSalcList& salclist, size_t i){return salclist[i];})
+        .def("__len__", [](const CdSalcList& salclist){return salclist.ncd();})
+        .def("__iter__", [](const CdSalcList& salclist){return py::make_iterator(salclist.get_salcs());},
+             py::keep_alive<0,1>())
         .def("print_out", &CdSalcList::print, "Print the SALC to the output file")
         .def("matrix", &CdSalcList::matrix, "Return the SALCs")
         .def("matrix_irrep", &CdSalcList::matrix_irrep, "Return only the SALCS in irrep h", py::arg("h"));
@@ -1334,6 +1357,10 @@ void export_mints(py::module& m)
     py::class_<BoysLocalizer, std::shared_ptr<BoysLocalizer>, Localizer>(m, "BoysLocalizer",
                                                                          "Performs Boys orbital localization");
     py::class_<PMLocalizer, std::shared_ptr<PMLocalizer>, Localizer>(m, "PMLocalizer", "Performs Pipek-Mezey orbital localization");
+
+    py::class_<GradientWriter, std::shared_ptr<GradientWriter>>(m, "GradientWriter", "Writes a molecule's gradient to file")
+        .def(py::init<std::shared_ptr<Molecule>, const Matrix&>())
+        .def("write", &GradientWriter::write, "Write gradient to file", py::arg("filename"));
 
     py::class_<FCHKWriter, std::shared_ptr<FCHKWriter>>(m, "FCHKWriter", "Extracts information from a wavefunction object, \
                                                                           and writes it to an FCHK file")
