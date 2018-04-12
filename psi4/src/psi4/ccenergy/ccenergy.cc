@@ -546,6 +546,8 @@ double CCEnergyWavefunction::compute_energy()
             set_variable("(T) CORRECTION ENERGY", reference_wavefunction_->get_variable("(T) CORRECTION ENERGY"));
             set_variable("CCSD(T) CORRELATION ENERGY", reference_wavefunction_->get_variable("CCSD(T) CORRELATION ENERGY"));
             set_variable("CCSD(T) TOTAL ENERGY", reference_wavefunction_->get_variable("CCSD(T) TOTAL ENERGY"));
+            set_variable("CURRENT CORRELATION ENERGY", reference_wavefunction_->get_variable("CCSD(T) CORRELATION ENERGY"));
+            set_variable("CURRENT ENERGY", reference_wavefunction_->get_variable("CCSD(T) TOTAL ENERGY"));
 
         } else {
             energy_ = 0.0;

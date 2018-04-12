@@ -58,7 +58,8 @@ SharedMatrix fd_freq_1(std::shared_ptr <Molecule>mol, Options &options,
     bool t_project = !options.get_bool("EXTERN") && !options.get_bool("PERTURB_H");
     bool r_project = t_project && options.get_bool("FD_PROJECT");
 
-    CdSalcList salc_list(mol, 0xFF, t_project, r_project);
+    //CdSalcList salc_list(mol, 0xFF, t_project, r_project);  // TODO UNDO
+    CdSalcList salc_list(mol, 0xFF, false, false);
     int Nirrep = salc_list.nirrep();
 
     // *** Build vectors that list indices of salcs for each irrep

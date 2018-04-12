@@ -89,7 +89,8 @@ reference rks
 
 E15 = -75.2976775610
 activate(h2o)
-edft=energy('scf', dft_functional="b86bpbe")
+#edft=energy('scf', dft_functional="b86bpbe")
+edft=energy('b86bpbe')  # TODO UNDO
 compare_values(E15,edft, 4, "H2O: B86BPBE ") #TEST
 
 

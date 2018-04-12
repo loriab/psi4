@@ -275,6 +275,8 @@ PsiReturnType cctriples(std::shared_ptr<Wavefunction> reference_wavefunction, Op
 
   Process::environment.globals["CURRENT ENERGY"] = ET+ moinfo.ecc+moinfo.eref;
   Process::environment.globals["CURRENT CORRELATION ENERGY"] = ET+ moinfo.ecc;
+  reference_wavefunction->set_variable("CURRENT ENERGY", ET + moinfo.ecc + moinfo.eref);
+  reference_wavefunction->set_variable("CURRENT CORRELATION ENERGY", ET + moinfo.ecc);
 
   dpd_close(0);
 

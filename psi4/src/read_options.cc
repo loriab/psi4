@@ -230,6 +230,7 @@ int read_options(const std::string &name, Options & options, bool suppress_print
   options.add("CUBIC_GRID_SPACING", new ArrayType());
   /* How many NOONS to print -- used in libscf_solver/uhf.cc and libmints/oeprop.cc */
   options.add_str("PRINT_NOONS","3");
+  options.add_str("GRIDDAT", "");
 
   /*- PCM boolean for pcmsolver module -*/
   options.add_bool("PCM", false);

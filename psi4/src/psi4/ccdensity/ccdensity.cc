@@ -397,8 +397,8 @@ PsiReturnType ccdensity(std::shared_ptr<Wavefunction> ref_wfn, Options& options)
     oe->add("QUADRUPOLE");
     oe->add("MULLIKEN_CHARGES");
     oe->add("NO_OCCUPATIONS");
-    //std::string cc_prop_label("CC");
-    std::string cc_prop_label(params.wfn);
+    std::string cc_prop_label("CC");
+    //std::string cc_prop_label(params.wfn);  // TODO UNDO
     if( i == 0 ){ // ground state
       oe->set_title(cc_prop_label);
       oe->compute();

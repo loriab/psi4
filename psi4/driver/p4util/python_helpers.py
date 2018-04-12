@@ -241,10 +241,10 @@ def set_options(options_dict):
 
         if module:
             core.set_local_option(module, option, v)
-            #print('Setting: core.set_local_option', module, option, v)
+            print('Setting: core.set_local_option', module, option, v)
         else:
             core.set_global_option(option, v)
-            #print('Setting: core.set_global_option', option, v)
+            print('Setting: core.set_global_option', option, v)
 
 
 def set_module_options(module, options_dict):
