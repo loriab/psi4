@@ -32,7 +32,6 @@
 #include "psi4/libpsi4util/PsiOutStream.h"
 #include "psi4/libpsi4util/process.h"
 
-#include <regex>
 #include <unistd.h>
 
 //MKL Header
