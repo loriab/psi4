@@ -211,28 +211,28 @@ energy_only_methods += ['adc', 'efp', 'cphf', 'tdhf', 'cis']
 
 # Integrate DFT with driver routines
 for key in functionals:
-      ssuper = build_superfunctional_from_dictionary(functionals[key], 1, 1, True)[0]
+    ssuper = build_superfunctional_from_dictionary(functionals[key], 1, 1, True)[0]
 
-      procedures['energy'][key] = proc.run_scf
+    procedures['energy'][key] = proc.run_scf
 
-      # Properties
-      if not ssuper.is_c_hybrid():
-            procedures['properties'][key] = proc.run_scf_property
+    # Properties
+    if not ssuper.is_c_hybrid():
+        procedures['properties'][key] = proc.run_scf_property
 
-      # Gradients
-      if ((not ssuper.is_c_hybrid()) and (not ssuper.is_c_lrc())):
-            procedures['gradient'][key] = proc.run_scf_gradient
+    # Gradients
+    if ((not ssuper.is_c_hybrid()) and (not ssuper.is_c_lrc())):
+        procedures['gradient'][key] = proc.run_scf_gradient
 
-      # Hessians
-      if not ssuper.needs_xc():
-            procedures['hessian'][key] = proc.run_scf_hessian
+    # Hessians
+    if not ssuper.needs_xc():
+        procedures['hessian'][key] = proc.run_scf_hessian
 
 # Integrate CFOUR with driver routines
 for ssuper in interface_cfour.cfour_list():
-      procedures['energy'][ssuper.lower()] = interface_cfour.run_cfour
+    procedures['energy'][ssuper.lower()] = interface_cfour.run_cfour
 
 for ssuper in interface_cfour.cfour_gradient_list():
-      procedures['gradient'][ssuper.lower()] = interface_cfour.run_cfour
+    procedures['gradient'][ssuper.lower()] = interface_cfour.run_cfour
 
 # dictionary to register pre- and post-compute hooks for driver routines
 hooks = dict((k1, dict((k2, []) for k2 in ['pre', 'post'])) for k1 in ['energy', 'optimize', 'frequency'])
