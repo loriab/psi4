@@ -22,6 +22,8 @@ install:
                  numpy
                  pybind11
                  pytest
+                 pip
+                 setuptools
   - conda clean --all
   - activate %CONDA_ENV%
   - conda list
