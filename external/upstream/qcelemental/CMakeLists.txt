@@ -16,9 +16,7 @@ else()
     message(STATUS "Suitable qcelemental could not be located, ${Magenta}Building qcelemental${ColourReset} instead.")
 
     set(_install_lib "${STAGED_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}${PYMOD_INSTALL_LIBDIR}")
-    message("_install_lib 0 ${_install_lib}")
     string(REGEX REPLACE "/$" "" _install_lib "${_install_lib}")
-    message("_install_lib 1 ${_install_lib}")
 
     ExternalProject_Add(qcelemental_external
         BUILD_ALWAYS 1
@@ -32,6 +30,4 @@ else()
                                                       --record=record.txt
                                                       --single-version-externally-managed
                                                       --install-lib=${_install_lib})
-
-#                                                      --install-lib=${STAGED_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}${PYMOD_INSTALL_LIBDIR})
 endif()

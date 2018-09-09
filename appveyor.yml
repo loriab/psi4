@@ -49,11 +49,11 @@ build_script:
           --config %CONFIGURATION%
           -- -j %NUMBER_OF_PROCESSORS%
 
-after_build:
-  - cmake --build .
-          --config %CONFIGURATION%
-          --target install
-          -- -j %NUMBER_OF_PROCESSORS%
+#after_build:
+#  - cmake --build .
+#          --config %CONFIGURATION%
+#          --target install
+#          -- -j %NUMBER_OF_PROCESSORS%
 
 before_test:
   - set PYTHONPATH=%INSTALL_FOLDER%\lib
