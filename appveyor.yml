@@ -56,7 +56,8 @@ build_script:
 #          -- -j %NUMBER_OF_PROCESSORS%
 
 before_test:
-  - set PYTHONPATH=%INSTALL_FOLDER%\lib
+  #- set PYTHONPATH=%INSTALL_FOLDER%\lib
+  - set PYTHONPATH=%BUILD_FOLDER%\stage\lib
   - python -c "import psi4; print(psi4)"
   # TODO create psi4.bat and set PATH
   - python %INSTALL_FOLDER%\bin\psi4 --version
