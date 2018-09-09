@@ -57,8 +57,11 @@ build_script:
 
 before_test:
   #- set PYTHONPATH=%INSTALL_FOLDER%\lib
+  #C:projects\psi4\build\stage\lib\
   - set PYTHONPATH=%BUILD_FOLDER%\stage\lib
-  - python -c "import psi4; print(psi4)"
+  - dir PYTHONPATH=%BUILD_FOLDER%\stage\lib
+  - python -c "import sys; print(sys.path)"
+  #- python -c "import psi4; print(psi4)"
   # TODO create psi4.bat and set PATH
   - python %INSTALL_FOLDER%\bin\psi4 --version
 
