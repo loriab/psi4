@@ -1,28 +1,5 @@
-<p align="center">
-<a href="https://travis-ci.org/psi4/psi4"> <img src="https://travis-ci.org/psi4/psi4.svg?branch=master" /></a>
-<a href="https://github.com/psi4/psi4/releases"> <img src="https://img.shields.io/github/commits-since/psi4/psi4/v1.2.svg" /></a>
-<a href="https://github.com/psi4/psi4/pulls"> <img src="https://img.shields.io/github/issues-pr-closed-raw/psi4/psi4.svg" /></a>
-<a href="https://codecov.io/gh/psi4/psi4"> <img src="https://codecov.io/gh/psi4/psi4/branch/master/graph/badge.svg" /></a>
-<!--<a href="https://gitter.im/psi4devs/Lobby"> <img src="https://img.shields.io/gitter/room/nwjs/nw.js.svg" /></a>-->
-<a href="http://forum.psicode.org/"> <img src="https://img.shields.io/badge/chat-on_forum-5077AB.svg" /></a>
-<br>
-<a href="http://www.psicode.org"> <img src="https://img.shields.io/badge/home-Psi4-5077AB.svg" /></a>
-<a href="http://psicode.org/psi4manual/master/index.html"> <img src="https://img.shields.io/badge/docs-latest-5077AB.svg" /></a>
-<a href="https://anaconda.org/psi4/psi4"> <img src="https://anaconda.org/psi4/psi4/badges/installer/conda.svg" /></a>
-<a href="http://psicode.org/psi4manual/master/introduction.html#supported-systems"> <img src="https://img.shields.io/badge/python-2.7%2C%203.5%2C%203.6-blue.svg" /></a>
-<a href="https://opensource.org/licenses/LGPL-3.0"> <img src="https://img.shields.io/github/license/psi4/psi4.svg" /></a>
-<a href="http://makeapullrequest.com"> <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" /></a>
-<br><br>
-<img src="https://github.com/psi4/psi4media/blob/master/logos-psi4/psi4banner_half_tight.png" alt="Psi4 banner logo" height=200> <br>
-</p>
-
-
-
 # <img alt="Psi4" src="https://github.com/psi4/psi4media/blob/master/logos-psi4/psi4square.png" height="100">
 <!--| <img src="https://github.com/psi4/psi4media/blob/master/logos-psi4/psi4banner_multieqn_overflow.png" height=100> | |-->
-
-
-<!--| <img src="https://github.com/psi4/psi4media/blob/master/logos-psi4/psi4square.png" height=100> | [![Travis build](https://img.shields.io/travis/psi4/psi4/master.svg?logo=linux)](https://travis-ci.org/psi4/psi4) [![Appveyor build](https://img.shields.io/appveyor/ci/psi4/psi4.svg?logo=windows)](https://ci.appveyor.com/project/psi4/psi4) [![Codecov coverage](https://codecov.io/gh/psi4/psi4/branch/master/graph/badge.svg)](https://codecov.io/gh/psi4/psi4) [![LGTM analysis](https://img.shields.io/lgtm/grade/python/g/psi4/psi4.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/psi4/psi4/context:python) |-->
 
 | **Status** | [![Travis build](https://img.shields.io/travis/psi4/psi4/master.svg?logo=linux)](https://travis-ci.org/psi4/psi4) [![Appveyor build](https://img.shields.io/appveyor/ci/psi4/psi4.svg?logo=windows)](https://ci.appveyor.com/project/psi4/psi4) [![Codecov coverage](https://codecov.io/gh/psi4/psi4/branch/master/graph/badge.svg)](https://codecov.io/gh/psi4/psi4) [![LGTM analysis](https://img.shields.io/lgtm/grade/python/g/psi4/psi4.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/psi4/psi4/context:python) |
 | :------ | :------- |
