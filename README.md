@@ -4,9 +4,11 @@
 [![docs latest](https://img.shields.io/badge/docs-latest-5077AB.svg?logo=read%20the%20docs)](http://psicode.org/psi4manual/master/index.html) [![chat on forum](https://img.shields.io/badge/chat-on_forum-808493.svg)](http://forum.psicode.org/) [![Conda](https://img.shields.io/conda/v/psi4/psi4.svg)](https://anaconda.org/psi4/psi4)
 
 Psi4 is an open-source suite of *ab initio* quantum chemistry programs
-designed for efficient, high-accuracy simulations of a variety of
-molecular properties. We can routinely perform computations with more
-than 2500 basis functions running serially or on multi-core machines.
+designed for efficient, high-accuracy simulations of
+molecular properties. We routinely perform computations with 
+>2500 basis functions on multi-core machines.
+
+Psi4 is an open-source suite of ab initio quantum chemistry programs designed for efficient, high-accuracy simulations of molecular properties. We routinely perform computations with >2500 basis functions running serially or on multi-core machines.
 
 With computationally demanding portions written in C++, exports
 of many C++ classes into Python via Pybind11, and a flexible Python driver, Psi4
