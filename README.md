@@ -5,8 +5,7 @@
 
 Psi4 is an open-source suite of *ab initio* quantum chemistry programs
 designed for efficient, high-accuracy simulations of
-molecular properties. We routinely perform computations with 
->2500 basis functions on multi-core machines.
+molecular properties. We routinely perform computations with >2500 basis functions on multi-core machines.
 
 Psi4 is an open-source suite of ab initio quantum chemistry programs designed for efficient, high-accuracy simulations of molecular properties. We routinely perform computations with >2500 basis functions running serially or on multi-core machines.
 
