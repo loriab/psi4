@@ -1,6 +1,6 @@
 # <img src="https://github.com/psi4/psi4media/blob/master/logos-psi4/psi4square.png" height=150>
 
-[![Travis build](https://img.shields.io/travis/psi4/psi4/master.svg?logo=linux)](https://travis-ci.org/psi4/psi4) [![Appveyor build](https://img.shields.io/appveyor/ci/psi4/psi4.svg?logo=windows)](https://ci.appveyor.com/project/psi4/psi4) [![Codecov coverage](https://codecov.io/gh/psi4/psi4/branch/master/graph/badge.svg)](https://codecov.io/gh/psi4/psi4) [![LGTM analysis](https://img.shields.io/lgtm/grade/python/g/psi4/psi4.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/psi4/psi4/context:python) |
+[![Travis build](https://img.shields.io/travis/psi4/psi4/master.svg?logo=linux)](https://travis-ci.org/psi4/psi4) [![Appveyor build](https://img.shields.io/appveyor/ci/psi4/psi4.svg?logo=windows)](https://ci.appveyor.com/project/psi4/psi4) [![Codecov coverage](https://codecov.io/gh/psi4/psi4/branch/master/graph/badge.svg)](https://codecov.io/gh/psi4/psi4) [![LGTM analysis](https://img.shields.io/lgtm/grade/python/g/psi4/psi4.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/psi4/psi4/context:python)
 [![docs latest](https://img.shields.io/badge/docs-latest-5077AB.svg?logo=read%20the%20docs)](http://psicode.org/psi4manual/master/index.html) [![chat on forum](https://img.shields.io/badge/chat-on_forum-808493.svg)](http://forum.psicode.org/) [![Conda](https://img.shields.io/conda/v/psi4/psi4.svg)](https://anaconda.org/psi4/psi4)
 
 Psi4 is an open-source suite of *ab initio* quantum chemistry programs
