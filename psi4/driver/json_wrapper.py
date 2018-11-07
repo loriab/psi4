@@ -84,17 +84,17 @@ def run_json(json_data, clean=True):
     json_data["success"] = False
 
     # Attempt to run the computer
-    try:
-        if json_data.get("schema_name", "").startswith("qc_schema"):
-            # qc_schema should be copied
-            json_data = run_json_qc_schema(copy.deepcopy(json_data), clean)
-        else:
-            # Original run updates inplace
-            run_json_original_v1_1(json_data, clean)
+    # try:
+    if json_data.get("schema_name", "").startswith("qc_schema"):
+        # qc_schema should be copied
+        json_data = run_json_qc_schema(copy.deepcopy(json_data), clean)
+    else:
+        # Original run updates inplace
+        run_json_original_v1_1(json_data, clean)
 
-    except Exception as error:
-        json_data["error"] = repr(error)
-        json_data["success"] = False
+    # except Exception as error:
+    #     json_data["error"] = repr(error)
+    #     json_data["success"] = False
 
     if return_output:
         with open(outfile, 'r') as f:
