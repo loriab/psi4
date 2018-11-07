@@ -36,10 +36,10 @@ import json
 import atexit
 
 import psi4
-from psi4.driver import driver
 from psi4.driver import molutil
 from psi4.driver import p4util
 from psi4 import core
+from psi4.driver import driver
 
 methods_dict_ = {
     'energy': driver.energy,
