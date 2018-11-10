@@ -44,6 +44,7 @@ import numpy as np
 from psi4.driver import driver_util
 from psi4.driver import driver_cbs
 from psi4.driver import driver_nbody
+from psi4.driver import driver_nbody_helper
 from psi4.driver import driver_findif
 from psi4.driver import task_base
 from psi4.driver import p4util
@@ -556,7 +557,11 @@ def energy(name, **kwargs):
                 targetfile = filepath + prefix + '.' + pid + '.' + namespace + '.' + str(filenum)
             shutil.copy(item, targetfile)
 
+    if kwargs.get('embedding_charges', None):
+        driver_nbody_helper.electrostatic_embedding(kwargs['embedding_charges'])
     wfn = procedures['energy'][lowername](lowername, molecule=molecule, **kwargs)
+    if kwargs.get('embedding_charges', None):
+        core.set_global_option_python('EXTERN', None)
 
     for postcallback in hooks['energy']['post']:
         postcallback(lowername, wfn=wfn, **kwargs)

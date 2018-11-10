@@ -147,13 +147,15 @@ def run_json_qc_schema(json_data, clean):
 
 
     # Set options
+    kwargs = {}
     for k, v in json_data["keywords"].items():
-        core.set_global_option(k, v)
+        try: core.set_global_option(k, v)
+        except: kwargs[k] = v
 
     # Setup the computation
     method = json_data["model"]["method"]
     core.set_global_option("BASIS", json_data["model"]["basis"])
-    kwargs = {"return_wfn": True, "molecule": mol}
+    kwargs.update({"return_wfn": True, "molecule": mol})
 
     # Handle special properties case
     if json_data["driver"] == "properties":
