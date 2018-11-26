@@ -640,7 +640,6 @@ def _core_get_variable(key):
         stacklevel=2)
     return core.scalar_variable(key)
 
-
 def _core_get_variables():
     warnings.warn(
         "Using `psi4.core.get_variables` instead of `psi4.core.variables` (or `psi4.core.scalar_variables` for scalar variables only) is deprecated, and in 1.4 it will stop working\n",
