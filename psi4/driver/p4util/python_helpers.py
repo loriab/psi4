@@ -701,7 +701,6 @@ def _core_wavefunction_arrays(cls):
         stacklevel=2)
     return cls.array_variables()
 
-
 core.Wavefunction.get_variable = _core_wavefunction_get_variable
 core.Wavefunction.get_array = _core_wavefunction_get_array
 core.Wavefunction.set_array = _core_wavefunction_set_array
@@ -709,7 +708,6 @@ core.Wavefunction.arrays = _core_wavefunction_arrays
 
 
 ## Psi4 v1.3 Export Deprecations
-
 
 def _core_get_gradient():
     warnings.warn(
@@ -725,7 +723,6 @@ def _core_set_gradient(val):
         category=FutureWarning,
         stacklevel=2)
     return core.set_legacy_gradient(val)
-
 
 core.get_gradient = _core_get_gradient
 core.set_gradient = _core_set_gradient

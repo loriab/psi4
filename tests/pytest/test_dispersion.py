@@ -66,6 +66,8 @@ dpbed3zero = {
     (({'name_hint': 'pbe', 'level_hint': 'd3zero'}, 'PBE-D3'), dpbed3zero),
     (({'name_hint': 'pbe', 'level_hint': 'd3'}, 'PBE-D3'), dpbed3zero),
     (({'name_hint': 'pbe-d3'}, 'PBE-D3'), dpbed3zero),
+    (({'name_hint': 'mp2-dmp2'}, 'MP2-DMP2'), dmp2dmp2),
+    (({'name_hint': 'MP2', 'level_hint': 'dmp2'}, 'MP2-DMP2'), dmp2dmp2),
 ])
 def test_intf_dftd3_from_arrays(inp, expected):
     res = intf_dftd3.from_arrays(**inp[0])
@@ -127,8 +129,10 @@ ref['eneyne']['B3LYP-D3(BJ)'] = dict(zip(dmm, [-0.00784595, -0.00394347, -0.0022
 ref['eneyne']['PBE-D2'] = dict(zip(dmm, [-0.00278650, -0.00118051, -0.00041513, -0.00118051, -0.00041513]))
 ref['eneyne']['PBE-D3'] = dict(zip(dmm, [-0.00175474, -0.00045421, -0.00016839, -0.00045421, -0.00016839]))
 ref['eneyne']['PBE-D3(BJ)'] = dict(zip(dmm, [-0.00475937, -0.00235265, -0.00131239, -0.00235265, -0.00131239]))
+ref['eneyne']['MP2-DMP2'] = dict(zip(dmm, [0.00632174635953, 0.00265335573161, 0.00344334929607, 0.00265335573161, 0.00344334929607]))
 ref['ne'] = {}
 ref['ne']['B3LYP-D3(BJ)'] = {'atom': 0.0}
+ref['ne']['MP2-DMP2'] = {'atom': 0.0}
 
 
 @using_dftd3
@@ -285,3 +289,24 @@ def test_dftd3_dft_grad_lr3():
 
     analytic = psi4.gradient('wB97X-D3BJ', dertype=1)
     assert compare_matrices(analytic, FD_wb97x_d3, 5, "wB97X-D3BJ Analytic vs Store")
+
+_mp2d_paramset = [
+    ({'parent': 'eneyne', 'name': 'mp2d-mp2-dmp2', 'subject': 'dimer', 'lbl': 'MP2-DMP2'}),
+    ({'parent': 'eneyne', 'name': 'mp2d-mp2-dmp2', 'subject': 'mA', 'lbl': 'MP2-DMP2'}),
+    ({'parent': 'eneyne', 'name': 'mp2d-mp2-dmp2', 'subject': 'mB', 'lbl': 'MP2-DMP2'}),
+    ({'parent': 'eneyne', 'name': 'mp2d-mp2-dmp2', 'subject': 'gAmB', 'lbl': 'MP2-DMP2'}),
+    ({'parent': 'eneyne', 'name': 'mp2d-mp2-dmp2', 'subject': 'mAgB', 'lbl': 'MP2-DMP2'}),
+    ({'parent': 'ne', 'name': 'mp2d-mp2-dmp2', 'subject': 'atom', 'lbl': 'MP2-DMP2'}),
+]
+
+@using_mp2d
+@pytest.mark.parametrize("inp", _mp2d_paramset)
+def test_11_mp2d_qmol(inp, eneyne_ne_qmolecules):
+    subject = eneyne_ne_qmolecules[inp['parent']][inp['subject']]
+    expected = ref[inp['parent']][inp['lbl']][inp['subject']]
+
+    jrec = qcdb.intf_mp2d.run_mp2d(inp['name'], subject, options={}, ptype='energy')
+    assert compare_values(expected, jrec['qcvars']['CURRENT ENERGY'].data, 7, tnm())
+    assert compare_values(expected, jrec['qcvars']['DISPERSION CORRECTION ENERGY'].data, 7, tnm())
+    assert compare_values(expected, jrec['qcvars'][inp['lbl'] + ' DISPERSION CORRECTION ENERGY'].data, 7, tnm())
+
