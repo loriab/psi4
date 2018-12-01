@@ -248,12 +248,6 @@ def test_deprecated_core_get_array_variable(pe_wfn_qcvars):
 def test_deprecated_core_get_array_variables(pe_wfn_qcvars):
     with pytest.warns(FutureWarning) as err:
         subject = psi4.core.get_array_variables()
-    arrs = {k: v for k, v in _vars_stored.items() if not k.startswith('VAR ')}
-
-    _compare_qcvars(arrs, subject, 8, tnm())
-
-
-def test_deprecated_wfn_get_variable(pe_wfn_qcvars):
     with pytest.warns(FutureWarning) as err:
         subject = pe_wfn_qcvars.get_variable('vAR B')
 

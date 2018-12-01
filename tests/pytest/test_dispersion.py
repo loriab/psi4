@@ -66,8 +66,6 @@ dpbed3zero = {
     (({'name_hint': 'pbe', 'level_hint': 'd3zero'}, 'PBE-D3'), dpbed3zero),
     (({'name_hint': 'pbe', 'level_hint': 'd3'}, 'PBE-D3'), dpbed3zero),
     (({'name_hint': 'pbe-d3'}, 'PBE-D3'), dpbed3zero),
-    (({'name_hint': 'mp2-dmp2'}, 'MP2-DMP2'), dmp2dmp2),
-    (({'name_hint': 'MP2', 'level_hint': 'dmp2'}, 'MP2-DMP2'), dmp2dmp2),
 ])
 def test_intf_dftd3_from_arrays(inp, expected):
     res = intf_dftd3.from_arrays(**inp[0])

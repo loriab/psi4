@@ -75,10 +75,8 @@ def _pybuild_basis(mol,
     # if a string, they search for a gbs file with that name.
     # if a function, it needs to apply a basis to each atom.
 
-    bs, basisdict = qcdb.BasisSet.pyconstruct(mol.to_dict(),
-                                              key, resolved_target, fitrole, other,
-                                              return_dict=True,
-                                              return_atomlist=return_atomlist)
+    bs, basisdict = qcdb.BasisSet.pyconstruct(
+        mol.to_dict(), key, resolved_target, fitrole, other, return_dict=True, return_atomlist=return_atomlist)
 
     if return_atomlist:
         atom_basis_list = []
@@ -137,10 +135,10 @@ def _core_wavefunction_from_file(wfn_data):
     # otherwise a dictionary was passed in
     else:
         pass
-    
+
     # variable type specific dictionaries to be passed into C++ constructor
     wfn_matrix = wfn_data['matrix']
-    wfn_vector= wfn_data['vector']
+    wfn_vector = wfn_data['vector']
     wfn_dimension = wfn_data['dimension']
     wfn_int = wfn_data['int']
     wfn_string = wfn_data['string']
@@ -164,23 +162,23 @@ def _core_wavefunction_from_file(wfn_data):
     # change some variables to psi4 specific data types (Matrix, Vector, Dimension)
     for label in wfn_matrix:
         array = wfn_matrix[label]
-        wfn_matrix[label] = core.Matrix.from_array(array,name=label) if array is not None else None
-    
+        wfn_matrix[label] = core.Matrix.from_array(array, name=label) if array is not None else None
+
     for label in wfn_vector:
         array = wfn_vector[label]
-        wfn_vector[label] = core.Vector.from_array(array,name=label) if array else None
+        wfn_vector[label] = core.Vector.from_array(array, name=label) if array else None
 
     for label in wfn_dimension:
         tup = wfn_dimension[label]
-        wfn_dimension[label] = core.Dimension.from_list(tup,name=label) if tup else None
+        wfn_dimension[label] = core.Dimension.from_list(tup, name=label) if tup else None
 
     for label in wfn_matrixarr:
         array = wfn_dimension[label]
-        wfn_dimension[label] = core.Matrix.from_array(array,name=label) if array else None
+        wfn_dimension[label] = core.Matrix.from_array(array, name=label) if array else None
 
-    # make the wavefunction 
-    wfn = core.Wavefunction(molecule, basisset, wfn_matrix, wfn_vector, wfn_dimension, wfn_int,
-                            wfn_string, wfn_boolean, wfn_float)
+    # make the wavefunction
+    wfn = core.Wavefunction(molecule, basisset, wfn_matrix, wfn_vector, wfn_dimension, wfn_int, wfn_string,
+                            wfn_boolean, wfn_float)
 
     # some of the wavefunction's variables can be changed directly
     for k, v in wfn_floatvar.items():
@@ -265,7 +263,7 @@ def _core_wavefunction_to_file(wfn, filename=None):
     }  # yapf: disable
 
     if filename is not None:
-        np.save(filename,wfn_data)
+        np.save(filename, wfn_data)
     else:
         return wfn_data
 
@@ -321,9 +319,8 @@ def _core_jk_build(orbital_basis, aux=None, jk_type=None):
 
     if aux is None:
         if core.get_global_option("SCF_TYPE") == "DF":
-            aux = core.BasisSet.build(orbital_basis.molecule(), "DF_BASIS_SCF",
-                                      core.get_option("SCF", "DF_BASIS_SCF"), "JKFIT",
-                                      core.get_global_option('BASIS'), orbital_basis.has_puream())
+            aux = core.BasisSet.build(orbital_basis.molecule(), "DF_BASIS_SCF", core.get_option("SCF", "DF_BASIS_SCF"),
+                                      "JKFIT", core.get_global_option('BASIS'), orbital_basis.has_puream())
         else:
             aux = core.BasisSet.zero_ao_basis_set()
 
