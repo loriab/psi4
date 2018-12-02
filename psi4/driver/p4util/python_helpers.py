@@ -258,8 +258,8 @@ def _core_wavefunction_to_file(wfn, filename=None):
             'dipole_field_y': wfn.get_dipole_field_strength()[1],
             'dipole_field_z': wfn.get_dipole_field_strength()[2]
         },
-        'floatvar' : wfn.scalar_variables(),
-        'matrixarr' : {k: v.to_array() for k, v in wfn.array_variables().items()}
+        'floatvar': wfn.scalar_variables(),
+        'matrixarr': {k: v.to_array() for k, v in wfn.array_variables().items()}
     }  # yapf: disable
 
     if filename is not None:
@@ -526,7 +526,6 @@ core.set_global_option_python = _core_set_global_option_python
 
 ## QCvar helps
 
-
 def _core_has_variable(key):
     return core.has_scalar_variable(key) or core.has_array_variable(key)
 
@@ -636,6 +635,7 @@ def _core_get_variable(key):
         category=FutureWarning,
         stacklevel=2)
     return core.scalar_variable(key)
+
 
 def _core_get_variables():
     warnings.warn(
