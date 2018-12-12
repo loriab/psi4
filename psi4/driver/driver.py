@@ -499,7 +499,6 @@ def energy(name, **kwargs):
     >>> energy("MP2/aug-cc-pv([d,t]+d)z + d:ccsd(t)/cc-pvdz", corl_scheme=myxtplfn_2)
 
     """
-    nbody, cbs = None, None
     kwargs = p4util.kwargs_lower(kwargs)
 
     core.print_out("\nScratch directory: %s\n" % core.IOManager.shared_object().get_default_path())
