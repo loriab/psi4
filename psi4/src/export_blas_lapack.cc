@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -31,8 +31,7 @@
 #include "psi4/libmints/psimath.h"
 #include "psi4/pybind11.h"
 
-void export_blas_lapack(py::module& m)
-{
+void export_blas_lapack(py::module& m) {
     // BLAS Static Wrappers
     m.def("DGBMV", &psi::PSI_DGBMV, "docstring");
     m.def("DGEMM", &psi::PSI_DGEMM, "docstring");

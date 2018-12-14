@@ -1,5 +1,16 @@
+dist: xenial
 language: cpp
 sudo: false
+python: 3.6.5
+cache:
+  timeout: 1000
+  directories:
+    - $HOME/miniconda
+
+env:
+  global:
+    - CTEST_OUTPUT_ON_FAILURE=1
+
 matrix:
   #allow_failures:
   #  - compiler: clang
@@ -9,8 +20,6 @@ matrix:
   #      - C_COMPILER='clang-3.9'
   #      - Fortran_COMPILER='gfortran'
   #      - BUILD_TYPE='release'
-  #      - NAME='clang'
-  #      - VERSION='3.9'
 
   include:
 
@@ -18,9 +27,6 @@ matrix:
     compiler: clang
     addons: &1
       apt:
-        sources:
-        - llvm-toolchain-precise-3.6
-        - ubuntu-toolchain-r-test
         packages:
         - liblapack-dev
         - clang-3.6
@@ -32,8 +38,6 @@ matrix:
       - C_COMPILER='clang-3.6'
       - Fortran_COMPILER='gfortran'
       - BUILD_TYPE='release'
-      - NAME='clang'
-      - VERSION='3.6'
 
   #- os: linux
   #  compiler: clang
@@ -53,32 +57,22 @@ matrix:
   #    - C_COMPILER='clang-3.9'
   #    - Fortran_COMPILER='gfortran'
   #    - BUILD_TYPE='release'
-  #    - NAME='clang'
-  #    - VERSION='3.9'
 
   - os: linux
     compiler: gcc
     addons: &3
       apt:
-        sources:
-        - ubuntu-toolchain-r-test
         packages:
         - python-numpy
-        - cmake
-        - cmake-data
         - liblapack-dev
         - libhdf5-serial-dev
-        - g++-4.9
-        - gcc-4.9
-        - gfortran-4.9
+        - gfortran
     env:
-      - CXX_COMPILER='g++-4.9'
-      - PYTHON_VER='2.7'
-      - C_COMPILER='gcc-4.9'
-      - Fortran_COMPILER='gfortran-4.9'
+      - CXX_COMPILER='g++'
+      - PYTHON_VER='3.7'
+      - C_COMPILER='gcc'
+      - Fortran_COMPILER='gfortran'
       - BUILD_TYPE='release'
-      - NAME='gcc'
-      - VERSION='4.9'
 
   - os: linux
     compiler: gcc
@@ -88,8 +82,6 @@ matrix:
         - ubuntu-toolchain-r-test
         packages:
         - python-numpy
-        - cmake
-        - cmake-data
         - libhdf5-serial-dev
         - liblapack-dev
         - g++-6
@@ -97,12 +89,10 @@ matrix:
         - gfortran-6
     env:
       - CXX_COMPILER='g++-6'
-      - PYTHON_VER='3.5'
+      - PYTHON_VER='3.6'
       - C_COMPILER='gcc-6'
       - Fortran_COMPILER='gfortran-6'
       - BUILD_TYPE='release'
-      - NAME='gcc'
-      - VERSION=6
 
 #  - os: linux
 #    compiler: gcc
@@ -125,25 +115,25 @@ matrix:
 #      - C_COMPILER='gcc-6'
 #      - Fortran_COMPILER='gfortran-6'
 #      - BUILD_TYPE='release'
-#      - NAME='gcc'
-#      - VERSION=6
 
 before_install:
   - uname -a
   - free -m
   - df -h
   - ulimit -a
+  - mkdir -p $HOME/miniconda
+
 install:
-- wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-- bash miniconda.sh -b -p $HOME/miniconda
-- export PATH="$HOME/miniconda/bin:$PATH"
-- hash -r
-- conda config --set always_yes yes --set changeps1 no
-- conda update -q conda
-- conda info -a
-- conda create -q -n p4env python=$PYTHON_VER numpy cmake ci-psi4-lt psi4-lt-mp dftd3 gcp -c psi4/label/dev -c psi4
-- source activate p4env
-- conda list
+  - ./.scripts/miniconda.sh
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - >
+    if [[ ! "$(conda env list)" =~ "p4env" ]]; then
+      conda create -q -n p4env python=$PYTHON_VER psi4 --only-deps -c psi4/label/dev
+    fi
+  - source activate p4env
+  - conda install dftd3 gcp resp pylibefp pybind11=2.2.3 -c psi4/label/dev # snsmp2
+  - conda list
+
 before_script:
 - python -V
 - python -c 'import numpy; print(numpy.version.version)'
@@ -151,10 +141,13 @@ before_script:
 - export CXX=${CXX_COMPILER}
 - export CC=${C_COMPILER}
 - export FC=${Fortran_COMPILER}
-- export CTEST_OUTPUT_ON_FAILURE=1
 - ${CXX_COMPILER} --version
 - ${Fortran_COMPILER} --version
 - ${C_COMPILER} --version
+    # * can't use conda dist of the more complicated lib pkgs (e.g., CheMPS2, PCMSolver, v2rdm)
+    #   b/c their c++ symbols don't mix with the different Travis compilers. for other
+    #   reasons, pkgs are being compiled less statically, sad for CI.
+    # * can't enable trivial plugins b/c no psi4 for them to detect at start (e.g., snsmp2)
 - >
     cmake -Bbuild -H.
     -DCMAKE_CXX_COMPILER=${CXX_COMPILER}
@@ -165,22 +158,26 @@ before_script:
     -DENABLE_CheMPS2=OFF
     -DENABLE_dkh=ON
     -DENABLE_libefp=ON
-    -DENABLE_erd=ON
+    -DENABLE_erd=OFF
     -DENABLE_gdma=ON
-    -DENABLE_PCMSolver=ON
+    -DENABLE_PCMSolver=OFF
     -DENABLE_simint=ON
+    -DENABLE_snsmp2=OFF
+    -DENABLE_v2rdm_casscf=OFF
     -DENABLE_PLUGIN_TESTING=ON
     -DCMAKE_INSTALL_PREFIX=${TRAVIS_BUILD_DIR}/Install
 - cd build
 - ../.scripts/travis_build.sh
 script:
-- ./stage/${TRAVIS_BUILD_DIR}/Install/bin/psi4 ../tests/tu1-h2o-energy/input.dat
+- ./stage/bin/psi4 ../tests/tu1-h2o-energy/input.dat
 - python ../.scripts/travis_run_test.py
 - python ../.scripts/travis_print_failing.py
+- PYTHONPATH=stage/lib/ pytest -v -rws --durations=5 stage/lib/psi4/tests/
 
 # safelist
 branches:
   only:
   - master
+  - 1.2.x
   - 1.1.x
   - 1.0.x

@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -28,16 +28,14 @@
 
 #include "occwave.h"
 
+namespace psi {
+namespace occwave {
 
-
-namespace psi{ namespace occwave {
-
-SharedWavefunction occwave(SharedWavefunction ref_wfn, Options &options)
-{
+SharedWavefunction occwave(SharedWavefunction ref_wfn, Options &options) {
     // Start the timers
     tstart();
 
-    SharedWavefunction occ = SharedWavefunction(new OCCWave(ref_wfn, options));
+    auto occ = std::make_shared<OCCWave>(ref_wfn, options);
     occ->compute_energy();
 
     // Shut down the timers
@@ -45,4 +43,5 @@ SharedWavefunction occwave(SharedWavefunction ref_wfn, Options &options)
 
     return occ;
 }
-}} // End Namespaces
+}
+}  // End Namespaces

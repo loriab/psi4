@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -40,12 +40,12 @@ class SOBasisSet;
 
 /*! \ingroup MINTS
  *  \class MatrixFactory
- *  \brief A class for creating Matrix, SimpleMatrix, Vector, and SimpleVector objects.
+ *  \brief A class for creating Matrix and Vector objects.
  *
  * The objects this factory creates can automatically be sized based on information
  * from checkpoint.
  */
-class MatrixFactory {
+class PSI_API MatrixFactory {
     /// Number of irreps
     int nirrep_;
     /// Number of orbitals
@@ -55,7 +55,7 @@ class MatrixFactory {
     /// Number of columns per irrep
     Dimension colspi_;
 
-public:
+   public:
     /// Default constructor, does nothing.
     MatrixFactory();
     /// Copy constructor.
@@ -63,7 +63,7 @@ public:
     ~MatrixFactory();
 
     /// Manually initialize the matrix factory
-    bool init_with(int nirrep, int *rowspi, int *colspi);
+    bool init_with(int nirrep, int* rowspi, int* colspi);
 
     /// Manually initialize the matrix factory with Dimension objects
     bool init_with(const Dimension& rows, const Dimension& cols);
@@ -90,32 +90,32 @@ public:
     int norb() const;
 
     /// Returns a new Matrix object with default dimensions
-    Matrix * create_matrix(int symmetry=0);
+    Matrix* create_matrix(int symmetry = 0);
 
     /// Returns a new Matrix object with default dimensions
-    SharedMatrix create_shared_matrix();
+    SharedMatrix create_shared_matrix() const;
 
-    void create_matrix(Matrix& mat, int symmetry=0);
+    void create_matrix(Matrix& mat, int symmetry = 0);
 
     /// Returns a new Matrix object named name with default dimensions
-    Matrix * create_matrix(std::string name, int symmetry=0);
+    Matrix* create_matrix(std::string name, int symmetry = 0);
 
-    SharedMatrix create_shared_matrix(const std::string& name);
+    SharedMatrix create_shared_matrix(const std::string& name) const;
 
-    SharedMatrix create_shared_matrix(const std::string& name, int symmetry);
+    SharedMatrix create_shared_matrix(const std::string& name, int symmetry) const;
 
-    SharedMatrix create_shared_matrix(const std::string& name, int rows, int cols);
+    SharedMatrix create_shared_matrix(const std::string& name, int rows, int cols) const;
 
-    void create_matrix(Matrix& mat, std::string name, int symmetry=0);
+    void create_matrix(Matrix& mat, std::string name, int symmetry = 0);
 
     /// Returns a new Vector object with default dimensions
-    Vector * create_vector();
+    Vector* create_vector();
 
     void create_vector(Vector& vec);
 
     SharedVector create_shared_vector(const std::string& name);
 };
 
-}
+}  // namespace psi
 
 #endif

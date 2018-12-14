@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -32,6 +32,8 @@
 #include <vector>
 #include <memory>
 
+#include "psi4/pragma.h"
+
 namespace psi {
 class Options;
 
@@ -39,10 +41,8 @@ class Matrix;
 
 class BasisSet;
 
-class Localizer
-{
-protected:
-
+class PSI_API Localizer {
+   protected:
     // => Parameters <= //
 
     /// Print flag
@@ -58,35 +58,37 @@ protected:
     int maxiter_;
 
     /// Primary orbital basis set
-    std::shared_ptr <BasisSet> primary_;
+    std::shared_ptr<BasisSet> primary_;
     /// Delocalized Orbitals
-    std::shared_ptr <Matrix> C_;
+    std::shared_ptr<Matrix> C_;
 
     // => Targets <= //
 
     /// Localized Orbitals
-    std::shared_ptr <Matrix> L_;
+    std::shared_ptr<Matrix> L_;
     /// MO -> LO transformation
-    std::shared_ptr <Matrix> U_;
+    std::shared_ptr<Matrix> U_;
     /// Did the algorithm converge?
     bool converged_;
 
     /// Set defaults
     void common_init();
 
-public:
-
+   public:
     // => Constructors <= //
 
-    Localizer(std::shared_ptr <BasisSet> primary_, std::shared_ptr <Matrix> C);
+    Localizer(std::shared_ptr<BasisSet> primary_, std::shared_ptr<Matrix> C);
 
     virtual ~Localizer();
 
-    static std::shared_ptr <Localizer> build(const std::string &type, std::shared_ptr <BasisSet> primary, std::shared_ptr <Matrix> C);
+    static std::shared_ptr<Localizer> build(const std::string &type, std::shared_ptr<BasisSet> primary,
+                                            std::shared_ptr<Matrix> C);
 
-    static std::shared_ptr <Localizer> build(const std::string &type, std::shared_ptr <BasisSet> primary, std::shared_ptr <Matrix> C, Options &options);
+    static std::shared_ptr<Localizer> build(const std::string &type, std::shared_ptr<BasisSet> primary,
+                                            std::shared_ptr<Matrix> C, Options &options);
 
-    static std::shared_ptr <Localizer> build(std::shared_ptr <BasisSet> primary, std::shared_ptr <Matrix> C, Options &options);
+    static std::shared_ptr<Localizer> build(std::shared_ptr<BasisSet> primary, std::shared_ptr<Matrix> C,
+                                            Options &options);
 
     // => Computers <= //
 
@@ -96,77 +98,61 @@ public:
     /// Perform the localization algorithm
     virtual void localize() = 0;
 
-    /// Given a Fock matrix in the original basis (usually diagonal), produce an ordered copy in the local basis, and reorder L and U
-    std::shared_ptr <Matrix> fock_update(std::shared_ptr <Matrix> F_orig);
+    /// Given a Fock matrix in the original basis (usually diagonal), produce an ordered copy in the local basis, and
+    /// reorder L and U
+    std::shared_ptr<Matrix> fock_update(std::shared_ptr<Matrix> F_orig);
 
     // => Accessors <= //
 
-    std::shared_ptr <Matrix> L() const
-    { return L_; }
+    std::shared_ptr<Matrix> L() const { return L_; }
 
-    std::shared_ptr <Matrix> U() const
-    { return U_; }
+    std::shared_ptr<Matrix> U() const { return U_; }
 
-    bool converged() const
-    { return converged_; }
+    bool converged() const { return converged_; }
 
     // => Knobs <= //
 
-    void set_print(int print)
-    { print_ = print; }
+    void set_print(int print) { print_ = print; }
 
-    void set_debug(int debug)
-    { debug_ = debug; }
+    void set_debug(int debug) { debug_ = debug; }
 
-    void set_bench(int bench)
-    { bench_ = bench; }
+    void set_bench(int bench) { bench_ = bench; }
 
-    void set_convergence(double convergence)
-    { convergence_ = convergence; }
+    void set_convergence(double convergence) { convergence_ = convergence; }
 
-    void set_maxiter(int maxiter)
-    { maxiter_ = maxiter; }
-
+    void set_maxiter(int maxiter) { maxiter_ = maxiter; }
 };
 
-class BoysLocalizer : public Localizer
-{
-
-protected:
-
+class PSI_API BoysLocalizer : public Localizer {
+   protected:
     /// Set defaults
     void common_init();
 
-public:
-    BoysLocalizer(std::shared_ptr <BasisSet> primary, std::shared_ptr <Matrix> C);
+   public:
+    BoysLocalizer(std::shared_ptr<BasisSet> primary, std::shared_ptr<Matrix> C);
 
-    virtual ~BoysLocalizer();
+    ~BoysLocalizer() override;
 
-    virtual void print_header() const;
+    void print_header() const override;
 
-    virtual void localize();
-
+    void localize() override;
 };
 
-class PMLocalizer : public Localizer
-{
-
-protected:
-
+class PMLocalizer : public Localizer {
+   protected:
     /// Set defaults
     void common_init();
 
-public:
-    PMLocalizer(std::shared_ptr <BasisSet> primary, std::shared_ptr <Matrix> C);
+   public:
+    PMLocalizer(std::shared_ptr<BasisSet> primary, std::shared_ptr<Matrix> C);
 
-    virtual ~PMLocalizer();
+    ~PMLocalizer() override;
 
-    virtual void print_header() const;
+    void print_header() const override;
 
-    virtual void localize();
-
+    void localize() override;
 };
 
-} //Namespace psi
+}  // Namespace psi
 
 #endif

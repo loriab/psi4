@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -29,10 +29,11 @@
 #ifndef __math_test_cuhf_h__
 #define __math_test_cuhf_h__
 
-#include "psi4/libpsio/psio.hpp"
 #include "hf.h"
+#include "psi4/libpsio/psio.hpp"
 
-namespace psi { namespace scf {
+namespace psi {
+namespace scf {
 
 /*
 
@@ -67,7 +68,7 @@ namespace psi { namespace scf {
 */
 
 class CUHF : public HF {
-protected:
+   protected:
     SharedMatrix Dt_, Dt_old_;
     SharedMatrix Da_old_, Db_old_;
     SharedMatrix J_, Ka_, Kb_;
@@ -79,39 +80,35 @@ protected:
     SharedVector No_;
 
     void form_initialF();
-    void form_C();
-    void form_D();
-    double compute_initial_E();
-    virtual bool stability_analysis();
-    virtual double compute_E();
+    double compute_initial_E() override;
 
-    virtual void form_G();
-    virtual void form_F();
-
-    virtual void compute_orbital_gradient(bool save_diis);
-
-    bool diis();
-
-    bool test_convergency();
-    void save_information();
-    void compute_spin_contamination();
+    void compute_spin_contamination() override;
 
     void common_init();
 
-    void save_density_and_energy();
-
-    virtual void damp_update();
-
-    // Finalize memory/files
-    virtual void finalize();
-
-public:
+   public:
     CUHF(SharedWavefunction ref_wfn, std::shared_ptr<SuperFunctional> functional);
-    CUHF(SharedWavefunction ref_wfn, std::shared_ptr<SuperFunctional> functional,
-         Options& options, std::shared_ptr<PSIO> psio);
-    virtual ~CUHF();
-};
+    CUHF(SharedWavefunction ref_wfn, std::shared_ptr<SuperFunctional> functional, Options& options,
+         std::shared_ptr<PSIO> psio);
+    ~CUHF() override;
 
-}}
+    bool diis() override;
+    void save_density_and_energy() override;
+    double compute_orbital_gradient(bool save_diis, int max_diis_vectors) override;
+
+    void form_C() override;
+    void form_D() override;
+    void form_F() override;
+    void form_G() override;
+    double compute_E() override;
+    void finalize() override;
+
+    void damping_update(double) override;
+    bool stability_analysis() override;
+
+    std::shared_ptr<CUHF> c1_deep_copy(std::shared_ptr<BasisSet> basis);
+};
+}  // namespace scf
+}  // namespace psi
 
 #endif

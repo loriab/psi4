@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -65,7 +65,8 @@ void DFOCC::get_moinfo() {
         natom = molecule_->natom();
 
         // Read in nuclear repulsion energy
-        Enuc = reference_wavefunction_->molecule()->nuclear_repulsion_energy(reference_wavefunction_->get_dipole_field_strength());
+        Enuc = reference_wavefunction_->molecule()->nuclear_repulsion_energy(
+            reference_wavefunction_->get_dipole_field_strength());
 
         // Read SCF energy
         Escf = reference_wavefunction_->reference_energy();
@@ -170,7 +171,8 @@ void DFOCC::get_moinfo() {
         natom = molecule_->natom();
 
         // Read in nuclear repulsion energy
-        Enuc = reference_wavefunction_->molecule()->nuclear_repulsion_energy(reference_wavefunction_->get_dipole_field_strength());
+        Enuc = reference_wavefunction_->molecule()->nuclear_repulsion_energy(
+            reference_wavefunction_->get_dipole_field_strength());
 
         // Read SCF energy
         Escf = reference_wavefunction_->reference_energy();
@@ -340,10 +342,10 @@ void DFOCC::get_moinfo() {
     /************************** Create all required matrice *************************************/
     /********************************************************************************************/
     // Build Hso
-    // Hso_ = std::shared_ptr<Matrix>(new Matrix("SO-basis One-electron Ints", nso_, nso_);
-    // Tso_ = std::shared_ptr<Matrix>(new Matrix("SO-basis Kinetic Energy Ints", nso_, nso_);
-    // Vso_ = std::shared_ptr<Matrix>(new Matrix("SO-basis Potential Energy Ints", nso_, nso_);
-    // Sso_ = std::shared_ptr<Matrix>(new Matrix("SO-basis Overlap Ints", nso_, nso_);
+    // Hso_ = std::shared_ptr<Matrix>(new Matrix("SO-basis One-electron Ints", nso_, nso_));
+    // Tso_ = std::shared_ptr<Matrix>(new Matrix("SO-basis Kinetic Energy Ints", nso_, nso_));
+    // Vso_ = std::shared_ptr<Matrix>(new Matrix("SO-basis Potential Energy Ints", nso_, nso_));
+    // Sso_ = std::shared_ptr<Matrix>(new Matrix("SO-basis Overlap Ints", nso_, nso_));
     // Hso_->zero();
     // Tso_->zero();
     // Vso_->zero();

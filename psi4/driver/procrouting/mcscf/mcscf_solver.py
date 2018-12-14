@@ -3,7 +3,7 @@
 #
 # Psi4: an open-source quantum chemistry software package
 #
-# Copyright (c) 2007-2017 The Psi4 Developers.
+# Copyright (c) 2007-2018 The Psi4 Developers.
 #
 # The copyrights for code used from other parties are included in
 # the corresponding files.
@@ -26,15 +26,14 @@
 # @END LICENSE
 #
 
-
 import os
+
 import numpy as np
 
 from psi4 import core
 from psi4.driver import p4util
 from psi4.driver import qcdb
 from psi4.driver.p4util import solvers
-
 from .augmented_hessian import ah_iteration
 from .. import proc_util
 
@@ -84,7 +83,7 @@ def mcscf_solver(ref_wfn):
     mcscf_current_step_type = 'Initial CI'
 
     # Start with SCF energy and other params
-    scf_energy = core.get_variable("HF TOTAL ENERGY")
+    scf_energy = ciwfn.variable("HF TOTAL ENERGY")
     eold = scf_energy
     norb_iter = 1
     converged = False
@@ -92,7 +91,7 @@ def mcscf_solver(ref_wfn):
     qc_step = False
     approx_integrals_only = True
 
-    # Fake info to start with the inital diagonalization
+    # Fake info to start with the initial diagonalization
     ediff = 1.e-4
     orb_grad_rms = 1.e-3
 

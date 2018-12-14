@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2017 The Psi4 Developers.
+.. # Copyright (c) 2007-2018 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -386,3 +386,36 @@ Bibliography
 .. [Tomasi:2005:2999]
    J. Tomasi, B. Mennucci, and R. Cammi
    *Chem. Rev.* **105**, 2999 (2005).
+
+.. [McGibbon:2017:161725]
+   R. T. McGibbon, A. G. Taube, A. G. Donchev, K. Siva, F. Hern\ |a_acute|\ andez, C. Hargus, K. H. Law, J. L. Klepeis, D. E. Shaw
+   *J. Chem. Phys.* **147**, 161725 (2017).
+
+.. [Patkowski:2018:164110]
+   Konrad Patkowski, Piotr S. \.Zuchowski, Daniel G. A. Smith
+   *J. Chem. Phys.* **148**, 164110 (2018).
+
+.. [Morell:2005:205]
+   Christophe Morell, Andr\ |e_acute|\  Grand, and Alejandro Toro-Labb\ |e_acute| 
+   *J. Phys. Chem. A* **109**, 205 (2005).
+
+.. [Martinez-Araya:2015:451]
+   Jorge Ignacio Mart\ |i_acute|\ nez-Araya
+   *J. Math. Chem.* **53**, 451 (2015).
+
+.. [Hujo:2011:3866]
+   W. Hujo and S. Grimme
+   *J. Chem. Theory Comput.* **7** 3866 (2011).
+
+.. [Chai:2010:6615]
+   J. Chai and M. Head-Gordon
+   *Phys. Chem. Chem. Phys.* **10** 6615 (2008).
+
+.. [Pernal:2009:263201]
+   K. Pernal, R. Podeszwa, K. Patkowski, K. Szalewicz
+   *Phys. Rev. Lett.* **103** 263201 (2009).
+
+.. [Podeszwa:2010:550]
+   R. Podeszwa, K. Pernal, K. Patkowski, K. Szalewicz
+   *J. Phys. Chem. Lett.* **1** 550 (2010).
+

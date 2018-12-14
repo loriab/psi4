@@ -3,7 +3,7 @@
 #
 # Psi4: an open-source quantum chemistry software package
 #
-# Copyright (c) 2007-2017 The Psi4 Developers.
+# Copyright (c) 2007-2018 The Psi4 Developers.
 #
 # The copyrights for code used from other parties are included in
 # the corresponding files.
@@ -28,9 +28,12 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
+from __future__ import division
+import sys
+
 from .exceptions import *
 from .vecutil import *
-import sys
+
 if sys.version_info >= (3,0):
     basestring = str
 
@@ -799,7 +802,7 @@ class IrreducibleRepresentation(object):
             #print 'need to be int', dr, dc
             i = x2
             x1 = dr
-            x2 = dc
+            x2 = int(dc)
 
         return self.rep[i][x1][x2]
 
@@ -1606,6 +1609,10 @@ class PointGroup(object):
     def char_table(self):
         """Returns the CharacterTable for this point group."""
         return CharacterTable(self.PYbits)
+
+    def order(self):
+        """Returns the order of this point group."""
+        return self.char_table().order()
 
 #    def equiv(self, grp, tol=1.0e-6):
 #        """Returns 1 if the point groups *self* and *grp* are equivalent,

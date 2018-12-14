@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -32,95 +32,103 @@
 #include "psi4/libtrans/integraltransform.h"
 #include "psi4/libtrans/mospace.h"
 #include "psi4/liboptions/liboptions.h"
+#include "psi4/libqt/qt.h"
 
-
-namespace psi{ namespace fnocc{
+namespace psi {
+namespace fnocc {
 
 SharedWavefunction fnocc(SharedWavefunction ref_wfn, Options &options) {
+    std::shared_ptr<Wavefunction> wfn;
 
-  std::shared_ptr<Wavefunction> wfn;
+    if (!options.get_bool("DFCC")) {
+        // frozen natural orbital ccsd(t)
+        if (options.get_bool("NAT_ORBS")) {
+            auto fno = std::make_shared<FrozenNO>(ref_wfn, options);
+            fno->ComputeNaturalOrbitals();
+            wfn = (std::shared_ptr<Wavefunction>)fno;
 
-  if ( !options.get_bool("DFCC") ){
+        } else {
+            wfn = ref_wfn;
+        }
 
-      // frozen natural orbital ccsd(t)
-      if (options.get_bool("NAT_ORBS")) {
+        // transform integrals
+        tstart();
+        outfile->Printf("        ==> Transform all two-electron integrals <==\n");
+        outfile->Printf("\n");
 
-          std::shared_ptr<FrozenNO> fno(new FrozenNO(ref_wfn, options));
-          fno->ComputeNaturalOrbitals();
-          wfn = (std::shared_ptr<Wavefunction>)fno;
+        std::vector<std::shared_ptr<MOSpace> > spaces;
+        spaces.push_back(MOSpace::all);
+        std::shared_ptr<IntegralTransform> ints = std::make_shared<IntegralTransform>(
+            wfn, spaces, IntegralTransform::TransformationType::Restricted, IntegralTransform::OutputType::IWLOnly,
+            IntegralTransform::MOOrdering::QTOrder, IntegralTransform::FrozenOrbitals::OccAndVir, false);
+        ints->set_dpd_id(0);
+        ints->set_keep_iwl_so_ints(true);
+        ints->set_keep_dpd_so_ints(true);
+        timer_on("FNOCC: Initializing Integrals");
+        ints->initialize();
+        timer_off("FNOCC: Initializing Integrals");
+        timer_on("FNOCC: Two Elec Int Trans.");
+        ints->transform_tei(MOSpace::all, MOSpace::all, MOSpace::all, MOSpace::all);
+        timer_off("FNOCC: Two Elec Int Trans.");
+        tstop();
 
-      }else {
-          wfn = ref_wfn;
-      }
+        if (!options.get_bool("RUN_CEPA")) {
+            auto ccsd = std::make_shared<CoupledCluster>(wfn, options);
+            timer_on("FNOCC: CC energy");
+            ccsd->compute_energy();
+            timer_off("FNOCC: CC energy");
+            return ccsd;
+        } else {
+            auto cepa = std::make_shared<CoupledPair>(wfn, options);
+            timer_on("FNOCC: CEPA energy");
+            cepa->compute_energy();
+            timer_off("FNOCC: CEPA energy");
+            return cepa;
+        }
 
-      // transform integrals
-      tstart();
-      outfile->Printf("        ==> Transform all two-electron integrals <==\n");
-      outfile->Printf("\n");
+    } else {
+        tstart();
 
-      std::vector<std::shared_ptr<MOSpace> > spaces;
-      spaces.push_back(MOSpace::all);
-      std::shared_ptr<IntegralTransform> ints(new IntegralTransform(wfn, spaces, IntegralTransform::Restricted,
-                 IntegralTransform::IWLOnly, IntegralTransform::QTOrder, IntegralTransform::OccAndVir, false));
-      ints->set_dpd_id(0);
-      ints->set_keep_iwl_so_ints(true);
-      ints->set_keep_dpd_so_ints(true);
-      ints->initialize();
-      ints->transform_tei(MOSpace::all, MOSpace::all, MOSpace::all, MOSpace::all);
-      tstop();
+        outfile->Printf("\n\n");
+        outfile->Printf("        *******************************************************\n");
+        outfile->Printf("        *                                                     *\n");
+        outfile->Printf("        *                       DF-CCSD                       *\n");
+        outfile->Printf("        *                 Density-fitted CCSD                 *\n");
+        outfile->Printf("        *                                                     *\n");
+        outfile->Printf("        *                   Eugene DePrince                   *\n");
+        outfile->Printf("        *                                                     *\n");
+        outfile->Printf("        *******************************************************\n");
+        outfile->Printf("\n\n");
 
-      if ( !options.get_bool("RUN_CEPA") ) {
-          std::shared_ptr<CoupledCluster> ccsd(new CoupledCluster(wfn,options));
-          ccsd->compute_energy();
-          return ccsd;
-      } else {
-          std::shared_ptr<CoupledPair> cepa (new CoupledPair(wfn,options));
-          cepa->compute_energy();
-          return cepa;
-      }
+        // three-index integrals are generated/read by fno class
+        auto fno = std::make_shared<DFFrozenNO>(ref_wfn, options);
+        fno->ThreeIndexIntegrals();
+        if (options.get_bool("NAT_ORBS")) {
+            fno->ComputeNaturalOrbitals();
+            wfn = (std::shared_ptr<Wavefunction>)fno;
+        } else {
+            wfn = ref_wfn;
+        }
+// ccsd(t)!
 
-  }else {
+#ifdef GPUCC
+        auto ccsd = std::make_shared<GPUDFCoupledCluster>(wfn, options);
+        timer_on("FNOCC: CC energy");
+        ccsd->compute_energy();
+        timer_off("FNOCC: CC energy");
+#else
+        auto ccsd = std::make_shared<DFCoupledCluster>(wfn, options);
+        timer_on("FNOCC: CC energy");
+        ccsd->compute_energy();
+        timer_off("FNOCC: CC energy");
+#endif
 
-      tstart();
+        tstop();
 
-      outfile->Printf("\n\n");
-      outfile->Printf( "        *******************************************************\n");
-      outfile->Printf( "        *                                                     *\n");
-      outfile->Printf( "        *                       DF-CCSD                       *\n");
-      outfile->Printf( "        *                 Density-fitted CCSD                 *\n");
-      outfile->Printf( "        *                                                     *\n");
-      outfile->Printf( "        *                   Eugene DePrince                   *\n");
-      outfile->Printf( "        *                                                     *\n");
-      outfile->Printf( "        *******************************************************\n");
-      outfile->Printf("\n\n");
+        return ccsd;
+    }
 
-
-      // three-index integrals are generated/read by fno class
-      std::shared_ptr<DFFrozenNO> fno(new DFFrozenNO(ref_wfn,options));
-      fno->ThreeIndexIntegrals();
-      if ( options.get_bool("NAT_ORBS") ) {
-          fno->ComputeNaturalOrbitals();
-          wfn = (std::shared_ptr<Wavefunction>)fno;
-      }else {
-          wfn = ref_wfn;
-      }
-      // ccsd(t)!
-
-      #ifdef GPUCC
-          std::shared_ptr<GPUDFCoupledCluster> ccsd (new GPUDFCoupledCluster(wfn,options));
-          ccsd->compute_energy();
-      #else
-          std::shared_ptr<DFCoupledCluster> ccsd (new DFCoupledCluster(wfn,options));
-          ccsd->compute_energy();
-      #endif
-
-      tstop();
-
-      return ccsd;
-
-  }
-
-  //return wfn;
-} // end fnocc
-
-}} // end namespaces
+    // return wfn;
+}  // end fnocc
+}
+}  // end namespaces

@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -29,11 +29,11 @@
 #ifndef WRITER_H
 #define WRITER_H
 
- #include "psi4/pragma.h"
- PRAGMA_WARNING_PUSH
- PRAGMA_WARNING_IGNORE_DEPRECATED_DECLARATIONS
- #include <memory>
- PRAGMA_WARNING_POP
+#include "psi4/pragma.h"
+PRAGMA_WARNING_PUSH
+PRAGMA_WARNING_IGNORE_DEPRECATED_DECLARATIONS
+#include <memory>
+PRAGMA_WARNING_POP
 #include "psi4/libmints/vector.h"
 #include <string>
 #include "typedefs.h"
@@ -43,16 +43,6 @@ namespace psi {
 class Molecule;
 class Matrix;
 class Wavefunction;
-
-class GradientWriter {
-    std::shared_ptr<Molecule> molecule_;
-    const Matrix &gradient_;
-
-   public:
-    GradientWriter(std::shared_ptr<Molecule> mol, const Matrix &grad);
-
-    void write(const std::string &filename);
-};
 
 class FCHKWriter {
    private:
@@ -73,7 +63,7 @@ class FCHKWriter {
     void write(const std::string &filename);
 };
 
-class MoldenWriter {
+class PSI_API MoldenWriter {
     std::shared_ptr<Wavefunction> wavefunction_;
 
    public:
@@ -106,6 +96,6 @@ class NBOWriter {
 
     void write(const std::string &filename);
 };
-}
+}  // namespace psi
 
 #endif  // WRITER_H

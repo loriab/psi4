@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -31,18 +31,15 @@
 
 #include "psi4/libmints/typedefs.h"
 
-
 namespace psi {
 
 class BasisSet;
-class DF_Helper;
+class DFHelper;
 
 namespace sapt {
 
 class FDDS_Dispersion {
-
-protected:
-
+   protected:
     // BasisSets
     std::shared_ptr<BasisSet> primary_;
     std::shared_ptr<BasisSet> auxiliary_;
@@ -56,14 +53,14 @@ protected:
     // Auxiliary overlap matrix
     SharedMatrix aux_overlap_;
 
-    // DF_Helper object
-    std::shared_ptr<DF_Helper> dfh_;
+    // DFHelper object
+    std::shared_ptr<DFHelper> dfh_;
 
     // Cache map
     std::map<std::string, SharedMatrix> matrix_cache_;
     std::map<std::string, SharedVector> vector_cache_;
 
-public:
+   public:
     /**
      * Constructs the FDDS_Dispersion object.
      * @param primary   The primary basis
@@ -72,8 +69,7 @@ public:
      * "Cvir_B", "eps_occ_B", "eps_vir_B" quantities
      */
     FDDS_Dispersion(std::shared_ptr<BasisSet> primary, std::shared_ptr<BasisSet> auxiliary,
-                    std::map<std::string, SharedMatrix> matrix_cache,
-                    std::map<std::string, SharedVector> vector_cache);
+                    std::map<std::string, SharedMatrix> matrix_cache, std::map<std::string, SharedVector> vector_cache);
 
     ~FDDS_Dispersion();
 
@@ -110,8 +106,8 @@ public:
      */
     SharedMatrix aux_overlap() { return aux_overlap_; }
 
-}; // End FDDS_Dispersion
-
-}} // End namespace
+};  // End FDDS_Dispersion
+}  // namespace sapt
+}  // namespace psi
 
 #endif

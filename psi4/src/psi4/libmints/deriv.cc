@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -40,23 +40,23 @@
 #include "psi4/libmints/vector.h"
 #include "psi4/libmints/factory.h"
 #include "psi4/libmints/sointegral_onebody.h"
-
+#include "psi4/libmints/mintshelper.h"
 #include "psi4/libtrans/integraltransform.h"
 #include "psi4/libdpd/dpd.h"
 #include "psi4/libpsi4util/PsiOutStream.h"
 #include "psi4/libpsi4util/process.h"
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <memory>
+#include <array>
 
 namespace psi {
 
 size_t counter;
 
-class CorrelatedFunctor
-{
+class CorrelatedFunctor {
     /// The buffer to hold the TPDM
     double *tpdm_buffer_;
     /// Pointer to the current TPDM element
@@ -65,80 +65,67 @@ class CorrelatedFunctor
     size_t *buffer_sizes_;
     /// The PSIO object to use for disk I/O
     std::shared_ptr<PSIO> psio_;
-public:
+
+   public:
     int nthread;
     std::vector<SharedVector> result;
 
     CorrelatedFunctor() {
         throw PSIEXCEPTION("CorrelatedRestrictedFunctor(): Default constructor called. This shouldn't happen.");
     }
-    CorrelatedFunctor(SharedVector results) : psio_(_default_psio_lib_)
-    {
+    CorrelatedFunctor(SharedVector results) : psio_(_default_psio_lib_) {
         nthread = Process::environment.get_n_threads();
         result.push_back(results);
-        for (int i=1; i<nthread; ++i)
-            result.push_back(SharedVector(result[0]->clone()));
+        for (int i = 1; i < nthread; ++i) result.push_back(SharedVector(result[0]->clone()));
         size_t num_pairs = 0;
-        psio_->read_entry(PSIF_AO_TPDM, "Num. Pairs", (char*)&num_pairs, sizeof(size_t));
+        psio_->read_entry(PSIF_AO_TPDM, "Num. Pairs", (char *)&num_pairs, sizeof(size_t));
         buffer_sizes_ = new size_t[num_pairs];
-        psio_->read_entry(PSIF_AO_TPDM, "TPDM Buffer Sizes", (char*)buffer_sizes_, num_pairs*sizeof(size_t));
+        psio_->read_entry(PSIF_AO_TPDM, "TPDM Buffer Sizes", (char *)buffer_sizes_, num_pairs * sizeof(size_t));
         size_t max_size = 0;
-        for(size_t i = 0; i < num_pairs; ++i)
-            max_size = max_size > buffer_sizes_[i] ? max_size : buffer_sizes_[i];
+        for (size_t i = 0; i < num_pairs; ++i) max_size = max_size > buffer_sizes_[i] ? max_size : buffer_sizes_[i];
         tpdm_buffer_ = new double[max_size];
         tpdm_ptr_ = tpdm_buffer_;
     }
 
     void finalize() {
         // Do summation over threads
-        for (int i=1; i<nthread; ++i) {
+        for (int i = 1; i < nthread; ++i) {
             result[0]->add(result[i]);
         }
-        delete [] tpdm_buffer_;
-        delete [] buffer_sizes_;
+        delete[] tpdm_buffer_;
+        delete[] buffer_sizes_;
     }
 
-    void load_tpdm(size_t id){
+    void load_tpdm(size_t id) {
         // TODO, make this work with threads (each thread needs its own buffer)
-        char *toc = new char[40];
+        auto *toc = new char[40];
         sprintf(toc, "SO_TPDM_FOR_PAIR_%zd", id);
         size_t buffer_size = buffer_sizes_[id];
-        psio_->read_entry(PSIF_AO_TPDM, toc, (char*)tpdm_buffer_, buffer_size*sizeof(double));
-        delete [] toc;
+        psio_->read_entry(PSIF_AO_TPDM, toc, (char *)tpdm_buffer_, buffer_size * sizeof(double));
+        delete[] toc;
         tpdm_ptr_ = tpdm_buffer_;
     }
 
-    void next_tpdm_element(){
-        ++tpdm_ptr_;
-    }
+    void next_tpdm_element() { ++tpdm_ptr_; }
 
-    void operator()(int salc, int pabs, int qabs, int rabs, int sabs,
-                    int /*pirrep*/, int /*pso*/,
-                    int /*qirrep*/, int /*qso*/,
-                    int /*rirrep*/, int /*rso*/,
-                    int /*sirrep*/, int /*sso*/,
-                    double value)
-    {
-        int thread =0;
-        //This was the old line, but it always returned 0 anyways...
-        //WorldComm->thread_id(pthread_self());
+    void operator()(int salc, int pabs, int qabs, int rabs, int sabs, int /*pirrep*/, int /*pso*/, int /*qirrep*/,
+                    int /*qso*/, int /*rirrep*/, int /*rso*/, int /*sirrep*/, int /*sso*/, double value) {
+        int thread = 0;
+        // This was the old line, but it always returned 0 anyways...
+        // WorldComm->thread_id(pthread_self());
 
         double prefactor = 8.0;
-        if (pabs == qabs)
-            prefactor *= 0.5;
-        if (rabs == sabs)
-            prefactor *= 0.5;
-        if (pabs == rabs && qabs == sabs)
-            prefactor *= 0.5;
+        if (pabs == qabs) prefactor *= 0.5;
+        if (rabs == sabs) prefactor *= 0.5;
+        if (pabs == rabs && qabs == sabs) prefactor *= 0.5;
         result[thread]->add(salc, prefactor * (*tpdm_ptr_) * value);
     }
 };
 
-class ScfRestrictedFunctor
-{
+class ScfRestrictedFunctor {
     SharedMatrix D_;
 
-public:
+   public:
     int nthread;
     std::vector<SharedVector> result;
 
@@ -147,66 +134,52 @@ public:
     }
 
     // Added for debugging MADNESS.
-//    ScfRestrictedFunctor(const ScfRestrictedFunctor&) {
-//        throw PSIEXCEPTION("ScfRestrictedFunctor(): Copy constructor called.\n");
-//    }
+    //    ScfRestrictedFunctor(const ScfRestrictedFunctor&) {
+    //        throw PSIEXCEPTION("ScfRestrictedFunctor(): Copy constructor called.\n");
+    //    }
 
-//    ScfRestrictedFunctor& operator=(const ScfRestrictedFunctor&) {
-//        throw PSIEXCEPTION("ScfRestrictedFunctor(): Assignment operator called. This shouldn't happen.");
-//        return *this;
-//    }
+    //    ScfRestrictedFunctor& operator=(const ScfRestrictedFunctor&) {
+    //        throw PSIEXCEPTION("ScfRestrictedFunctor(): Assignment operator called. This shouldn't happen.");
+    //        return *this;
+    //    }
 
-    ScfRestrictedFunctor(SharedVector results, std::shared_ptr<Matrix> D)
-        : D_(D)
-    {
-        counter=0;
+    ScfRestrictedFunctor(SharedVector results, std::shared_ptr<Matrix> D) : D_(D) {
+        counter = 0;
         nthread = Process::environment.get_n_threads();
         result.push_back(results);
 
-        for (int i=1; i<nthread; ++i)
-            result.push_back(SharedVector(result[0]->clone()));
+        for (int i = 1; i < nthread; ++i) result.push_back(SharedVector(result[0]->clone()));
     }
-    ~ScfRestrictedFunctor() {
-    }
+    ~ScfRestrictedFunctor() {}
 
     void finalize() {
         // Do summation over threads
-        for (int i=1; i<nthread; ++i) {
+        for (int i = 1; i < nthread; ++i) {
             result[0]->add(result[i]);
         }
     }
 
     void load_tpdm(size_t /*id*/) {}
-    void next_tpdm_element(){}
+    void next_tpdm_element() {}
 
-    void operator()(int salc, int pabs, int qabs, int rabs, int sabs,
-                    int pirrep, int pso,
-                    int qirrep, int qso,
-                    int rirrep, int rso,
-                    int sirrep, int sso,
-                    double value)
-    {
+    void operator()(int salc, int pabs, int qabs, int rabs, int sabs, int pirrep, int pso, int qirrep, int qso,
+                    int rirrep, int rso, int sirrep, int sso, double value) {
         int thread = 0;
-        //Old call::WorldComm->thread_id(pthread_self());
+        // Old call::WorldComm->thread_id(pthread_self());
 
         // Previously, we applied a factor of 4 after the fact...apply it from the beginning now.
         double prefactor = 4.0;
 
-        if (pabs == qabs)
-            prefactor *= 0.5;
-        if (rabs == sabs)
-            prefactor *= 0.5;
-        if (pabs == rabs && qabs == sabs)
-            prefactor *= 0.5;
+        if (pabs == qabs) prefactor *= 0.5;
+        if (rabs == sabs) prefactor *= 0.5;
+        if (pabs == rabs && qabs == sabs) prefactor *= 0.5;
 
         double four_index_D = 0.0;
 
         if (pirrep == qirrep && rirrep == sirrep)
             four_index_D = 4.0 * D_->get(pirrep, pso, qso) * D_->get(rirrep, rso, sso);
-        if (pirrep == rirrep && qirrep == sirrep)
-            four_index_D -= D_->get(pirrep, pso, rso) * D_->get(qirrep, qso, sso);
-        if (pirrep == sirrep && qirrep == rirrep)
-            four_index_D -= D_->get(pirrep, pso, sso) * D_->get(qirrep, qso, rso);
+        if (pirrep == rirrep && qirrep == sirrep) four_index_D -= D_->get(pirrep, pso, rso) * D_->get(qirrep, qso, sso);
+        if (pirrep == sirrep && qirrep == rirrep) four_index_D -= D_->get(pirrep, pso, sso) * D_->get(qirrep, qso, rso);
 
         four_index_D *= prefactor;
 
@@ -215,41 +188,37 @@ public:
     }
 };
 
-class ScfAndDfCorrelationRestrictedFunctor
-{
+class ScfAndDfCorrelationRestrictedFunctor {
     SharedMatrix D_ref_;
     SharedMatrix D_;
     ScfRestrictedFunctor scf_functor_;
     std::vector<SharedVector> result_vec_;
     SharedVector results_;
 
-public:
+   public:
     int nthread;
 
-//    ScfAndDfCorrelationRestrictedFunctor() {
-//        throw PSIEXCEPTION("SCFAndDFCorrelationRestrictedFunctor(): Default constructor called. This shouldn't happen.");
-//    }
+    //    ScfAndDfCorrelationRestrictedFunctor() {
+    //        throw PSIEXCEPTION("SCFAndDFCorrelationRestrictedFunctor(): Default constructor called. This shouldn't
+    //        happen.");
+    //    }
 
-    ScfAndDfCorrelationRestrictedFunctor(SharedVector results,
-                                         ScfRestrictedFunctor& scf_functor,
-                                         std::shared_ptr<Matrix> D,
-                                         std::shared_ptr<Matrix> D_ref)
-        : D_ref_(D_ref), D_(D), scf_functor_(scf_functor), results_(results)
-    {
-        counter=0;
+    ScfAndDfCorrelationRestrictedFunctor(SharedVector results, ScfRestrictedFunctor &scf_functor,
+                                         std::shared_ptr<Matrix> D, std::shared_ptr<Matrix> D_ref)
+        : D_ref_(D_ref), D_(D), scf_functor_(scf_functor), results_(results) {
+        counter = 0;
         nthread = Process::environment.get_n_threads();
         result_vec_.push_back(results);
 
-        for (int i=1; i<nthread; ++i)
-            result_vec_.push_back(SharedVector(results->clone()));
+        for (int i = 1; i < nthread; ++i) result_vec_.push_back(SharedVector(results->clone()));
     }
 
     ScfAndDfCorrelationRestrictedFunctor() {
-        throw PSIEXCEPTION("ScfAndDfCorrelationRestrictedFunctor(): Default constructor called. This shouldn't happen.");
+        throw PSIEXCEPTION(
+            "ScfAndDfCorrelationRestrictedFunctor(): Default constructor called. This shouldn't happen.");
     }
 
-    ~ScfAndDfCorrelationRestrictedFunctor()
-    { }
+    ~ScfAndDfCorrelationRestrictedFunctor() {}
 
     void load_tpdm(size_t /*id*/) {}
     void next_tpdm_element() {}
@@ -258,40 +227,34 @@ public:
         // Make sure the SCF code is done
         scf_functor_.finalize();
         // Do summation over threads
-        for (int i=1; i<nthread; ++i) {
+        for (int i = 1; i < nthread; ++i) {
             result_vec_[0]->add(result_vec_[i]);
         }
     }
 
-    void operator()(int salc, int pabs, int qabs, int rabs, int sabs,
-                    int pirrep, int pso,
-                    int qirrep, int qso,
-                    int rirrep, int rso,
-                    int sirrep, int sso,
-                    double value)
-    {
+    void operator()(int salc, int pabs, int qabs, int rabs, int sabs, int pirrep, int pso, int qirrep, int qso,
+                    int rirrep, int rso, int sirrep, int sso, double value) {
         int thread = 0;
-        //Old call WorldComm->thread_id(pthread_self());
+        // Old call WorldComm->thread_id(pthread_self());
 
-        bool braket = pabs!=rabs || qabs!=sabs;
-        bool bra    = pabs!=qabs;
-        bool ket    = rabs!=sabs;
+        bool braket = pabs != rabs || qabs != sabs;
+        bool bra = pabs != qabs;
+        bool ket = rabs != sabs;
 
         double four_index_D = 0.0;
 
-        double Coulomb1  = 0.0;
-        double Coulomb2  = 0.0;
+        double Coulomb1 = 0.0;
+        double Coulomb2 = 0.0;
         double Exchange1 = 0.0;
-        if (pirrep == qirrep && rirrep == sirrep){
+        if (pirrep == qirrep && rirrep == sirrep) {
             Coulomb1 = 2.0 * D_->get(pirrep, pso, qso) * D_ref_->get(rirrep, rso, sso);
             Coulomb2 = 2.0 * D_->get(rirrep, rso, sso) * D_ref_->get(pirrep, pso, qso);
         }
-        if (pirrep == rirrep && qirrep == sirrep)
-            Exchange1 = D_->get(pirrep, pso, rso) * D_ref_->get(qirrep, qso, sso);
+        if (pirrep == rirrep && qirrep == sirrep) Exchange1 = D_->get(pirrep, pso, rso) * D_ref_->get(qirrep, qso, sso);
         // (pq|rs)
         four_index_D = Coulomb1 - Exchange1;
 
-        if(bra && ket && braket){
+        if (bra && ket && braket) {
             four_index_D += 3 * Coulomb1;
             four_index_D += 4 * Coulomb2;
             // (qp|rs) and (rs|qp)
@@ -305,7 +268,7 @@ public:
                 four_index_D -= 2.0 * D_->get(qirrep, qso, sso) * D_ref_->get(pirrep, pso, rso);
             // (rs|pq)
             four_index_D -= Exchange1;
-        }else if(bra && ket){
+        } else if (bra && ket) {
             four_index_D += 3 * Coulomb1;
             // (qp|rs)
             if (qirrep == rirrep && pirrep == sirrep)
@@ -316,7 +279,7 @@ public:
             // (qp|sr)
             if (qirrep == sirrep && pirrep == rirrep)
                 four_index_D -= D_->get(qirrep, qso, sso) * D_ref_->get(pirrep, pso, rso);
-        }else if(bra){
+        } else if (bra) {
             four_index_D += Coulomb1;
             four_index_D += 2 * Coulomb2;
             // (qp|rs)
@@ -327,7 +290,7 @@ public:
             // (rs|qp)
             if (rirrep == qirrep && sirrep == pirrep)
                 four_index_D -= D_->get(rirrep, rso, qso) * D_ref_->get(sirrep, sso, pso);
-        }else if(ket){
+        } else if (ket) {
             four_index_D += Coulomb1;
             four_index_D += 2 * Coulomb2;
             // (pq|sr)
@@ -338,7 +301,7 @@ public:
             // (sr|qp)
             if (sirrep == qirrep && rirrep == pirrep)
                 four_index_D -= D_->get(sirrep, sso, qso) * D_ref_->get(rirrep, rso, pso);
-        }else if(braket){
+        } else if (braket) {
             four_index_D += Coulomb2;
             // (rs|pq)
             four_index_D -= Exchange1;
@@ -347,76 +310,60 @@ public:
         result_vec_[thread]->add(salc, four_index_D * value);
 
         // Make sure the SCF contribution is computed.
-        scf_functor_(salc, pabs, qabs, rabs, sabs,  pirrep, pso, qirrep, qso,
-                     rirrep, rso, sirrep, sso, value);
+        scf_functor_(salc, pabs, qabs, rabs, sabs, pirrep, pso, qirrep, qso, rirrep, rso, sirrep, sso, value);
         counter++;
     }
 };
 
-
-class ScfUnrestrictedFunctor
-{
+class ScfUnrestrictedFunctor {
     SharedMatrix Da_;
     SharedMatrix Db_;
 
-public:
+   public:
     int nthread;
     std::vector<SharedVector> result;
 
     ScfUnrestrictedFunctor() { throw PSIEXCEPTION("ScfUnrestrictedFunctor(): Oh come on!!!"); }
 
     ScfUnrestrictedFunctor(SharedVector results, std::shared_ptr<Matrix> Da, std::shared_ptr<Matrix> Db)
-        : Da_(Da),
-          Db_(Db)
-    {
+        : Da_(Da), Db_(Db) {
         nthread = Process::environment.get_n_threads();
         result.push_back(results);
-        for (int i=1; i<nthread; ++i)
-            result.push_back(SharedVector(result[0]->clone()));
+        for (int i = 1; i < nthread; ++i) result.push_back(SharedVector(result[0]->clone()));
     }
-    ~ScfUnrestrictedFunctor()
-    { }
+    ~ScfUnrestrictedFunctor() {}
 
     void load_tpdm(size_t /*id*/) {}
     void next_tpdm_element() {}
 
     void finalize() {
         // Do summation over threads
-        for (int i=1; i<nthread; ++i)
-            result[0]->add(result[i]);
+        for (int i = 1; i < nthread; ++i) result[0]->add(result[i]);
     }
 
-    void operator()(int salc, int pabs, int qabs, int rabs, int sabs,
-                    int pirrep, int pso,
-                    int qirrep, int qso,
-                    int rirrep, int rso,
-                    int sirrep, int sso,
-                    double value)
-    {
+    void operator()(int salc, int pabs, int qabs, int rabs, int sabs, int pirrep, int pso, int qirrep, int qso,
+                    int rirrep, int rso, int sirrep, int sso, double value) {
         int thread = 0;
-        //Old call: WorldComm->thread_id(pthread_self());
+        // Old call: WorldComm->thread_id(pthread_self());
         double prefactor = 1.0;
 
-        if (pabs == qabs)
-            prefactor *= 0.5;
-        if (rabs == sabs)
-            prefactor *= 0.5;
-        if (pabs == rabs && qabs == sabs)
-            prefactor *= 0.5;
+        if (pabs == qabs) prefactor *= 0.5;
+        if (rabs == sabs) prefactor *= 0.5;
+        if (pabs == rabs && qabs == sabs) prefactor *= 0.5;
 
         double four_index_D = 0.0;
 
         if (pirrep == qirrep && rirrep == sirrep) {
             four_index_D = 4.0 * (Da_->get(pirrep, pso, qso) + Db_->get(pirrep, pso, qso)) *
-                                 (Da_->get(rirrep, rso, sso) + Db_->get(rirrep, rso, sso));
+                           (Da_->get(rirrep, rso, sso) + Db_->get(rirrep, rso, sso));
         }
         if (pirrep == rirrep && qirrep == sirrep) {
-            four_index_D -= 2.0 * ((Da_->get(pirrep, pso, rso) * Da_->get(qirrep, qso, sso))
-                                 + (Db_->get(pirrep, pso, rso) * Db_->get(qirrep, qso, sso)));
+            four_index_D -= 2.0 * ((Da_->get(pirrep, pso, rso) * Da_->get(qirrep, qso, sso)) +
+                                   (Db_->get(pirrep, pso, rso) * Db_->get(qirrep, qso, sso)));
         }
         if (pirrep == sirrep && qirrep == rirrep) {
-            four_index_D -= 2.0 * ((Da_->get(pirrep, pso, sso) * Da_->get(rirrep, rso, qso))
-                                 + (Db_->get(pirrep, pso, sso) * Db_->get(rirrep, rso, qso)));
+            four_index_D -= 2.0 * ((Da_->get(pirrep, pso, sso) * Da_->get(rirrep, rso, qso)) +
+                                   (Db_->get(pirrep, pso, sso) * Db_->get(rirrep, rso, qso)));
         }
         value *= prefactor;
 
@@ -424,43 +371,34 @@ public:
     }
 };
 
-Deriv::Deriv(const std::shared_ptr<Wavefunction>& wave,
-             char needed_irreps,
-             bool project_out_translations,
+Deriv::Deriv(const std::shared_ptr<Wavefunction> &wave, char needed_irreps, bool project_out_translations,
              bool project_out_rotations)
-    : wfn_(wave),
-      cdsalcs_(wave->molecule(),
-          wave->matrix_factory(),
-          needed_irreps,
-          project_out_translations,
-          project_out_rotations)
-{
+    : wfn_(wave), cdsalcs_(wave->molecule(), needed_irreps, project_out_translations, project_out_rotations) {
     integral_ = wave->integral();
-    basis_    = wave->basisset();
-    sobasis_  = wave->sobasisset();
-    factory_  = wave->matrix_factory();
+    basis_ = wave->basisset();
+    sobasis_ = wave->sobasisset();
+    factory_ = wave->matrix_factory();
     molecule_ = wave->molecule();
-    natom_    = molecule_->natom();
+    natom_ = molecule_->natom();
     tpdm_presorted_ = false;
     deriv_density_backtransformed_ = false;
     ignore_reference_ = false;
 
     // Results go here.
     opdm_contr_ = factory_->create_shared_matrix("One-electron contribution to gradient", natom_, 3);
-    x_contr_    = factory_->create_shared_matrix("Lagrangian contribution to gradient", natom_, 3);
+    x_contr_ = factory_->create_shared_matrix("Lagrangian contribution to gradient", natom_, 3);
     tpdm_contr_ = factory_->create_shared_matrix("Two-electron contribution to gradient", natom_, 3);
-    gradient_   = factory_->create_shared_matrix("Total gradient", natom_, 3);
+    gradient_ = factory_->create_shared_matrix("Total gradient", natom_, 3);
 
     cdsalcs_.print();
 }
 
-SharedMatrix Deriv::compute()
-{
+SharedMatrix Deriv::compute() {
     molecule_->print_in_bohr();
 
     if (natom_ == 1) {
         // This is an atom...there is no gradient.
-        outfile->Printf( "    A single atom has no gradient.\n");
+        outfile->Printf("    A single atom has no gradient.\n");
         // Save the gradient to the wavefunction so that optking can optimize with it
         wfn_->set_gradient(gradient_);
         return gradient_;
@@ -468,7 +406,7 @@ SharedMatrix Deriv::compute()
 
     // Initialize an ERI object requesting derivatives.
     std::vector<std::shared_ptr<TwoBodyAOInt> > ao_eri;
-    for (int i=0; i<Process::environment.get_n_threads(); ++i)
+    for (int i = 0; i < Process::environment.get_n_threads(); ++i)
         ao_eri.push_back(std::shared_ptr<TwoBodyAOInt>(integral_->eri(1)));
     TwoBodySOInt so_eri(ao_eri, integral_, cdsalcs_);
 
@@ -477,40 +415,31 @@ SharedMatrix Deriv::compute()
     so_eri.set_only_totally_symmetric(true);
 
     // Compute one-electron derivatives.
-    std::vector<SharedMatrix> s_deriv = cdsalcs_.create_matrices("S'");
-    std::vector<SharedMatrix> h_deriv = cdsalcs_.create_matrices("H'");
-
+    std::vector<SharedMatrix> s_deriv = cdsalcs_.create_matrices("S'", *factory_);
     std::shared_ptr<OneBodySOInt> s_int(integral_->so_overlap(1));
-    std::shared_ptr<OneBodySOInt> t_int(integral_->so_kinetic(1));
-    std::shared_ptr<OneBodySOInt> v_int(integral_->so_potential(1));
 
     s_int->compute_deriv1(s_deriv, cdsalcs_);
-    t_int->compute_deriv1(h_deriv, cdsalcs_);
-    v_int->compute_deriv1(h_deriv, cdsalcs_);
 
+    auto mints = std::make_shared<MintsHelper>(wfn_->basisset(), wfn_->options());
     int ncd = cdsalcs_.ncd();
-    SharedVector TPDMcont_vector(new Vector(ncd));
-    SharedVector Xcont_vector(new Vector(ncd));
-    SharedVector Dcont_vector(new Vector(ncd));
+    auto TPDMcont_vector = std::make_shared<Vector>(ncd);
+    auto Xcont_vector = std::make_shared<Vector>(ncd);
+    auto Dcont_vector = std::make_shared<Vector>(ncd);
     SharedVector TPDM_ref_cont_vector;
     SharedVector X_ref_cont_vector;
-    SharedVector D_ref_cont_vector;
-    double *Dcont           = Dcont_vector->pointer();
-    double *Xcont           = Xcont_vector->pointer();
-    double *TPDMcont        = TPDMcont_vector->pointer();
-    double *TPDM_ref_cont   = 0;
-    double *X_ref_cont      = 0;
-    double *D_ref_cont      = 0;
+    double *Xcont = Xcont_vector->pointer();
+    double *TPDMcont = TPDMcont_vector->pointer();
+    double *TPDM_ref_cont = nullptr;
+    double *X_ref_cont = nullptr;
 
-    if (!wfn_)
-        throw("In Deriv: The wavefunction passed in is empty!");
+    if (!wfn_) throw("In Deriv: The wavefunction passed in is empty!");
 
     // Try and grab the OPDM and lagrangian from the wavefunction
     SharedMatrix Da = wfn_->Da();
     SharedMatrix Db = wfn_->Db();
     SharedMatrix X = wfn_->X();
 
-    // The current wavefunction's reference wavefunction, NULL for SCF/DFT
+    // The current wavefunction's reference wavefunction, nullptr for SCF/DFT
     std::shared_ptr<Wavefunction> ref_wfn = wfn_->reference_wavefunction();
     // Whether the SCF contribution is separate from the correlated terms
     bool reference_separate = (X) && ref_wfn;
@@ -518,10 +447,8 @@ SharedMatrix Deriv::compute()
     if (!ref_wfn) {
         // If wavefunction doesn't have a reference wavefunction
         // itself, we assume that we're dealing with SCF.
-        if (!Da || !Db)
-            throw PSIEXCEPTION("Deriv::compute: Unable to access OPDM.");
-        if (!X)
-            throw PSIEXCEPTION("Deriv::compute: Unable to access Lagrangian.");
+        if (!Da || !Db) throw PSIEXCEPTION("Deriv::compute: Unable to access OPDM.");
+        if (!X) throw PSIEXCEPTION("Deriv::compute: Unable to access Lagrangian.");
 
         if (wfn_->same_a_b_dens()) {  // RHF
             // We need to account for spin integration
@@ -529,45 +456,33 @@ SharedMatrix Deriv::compute()
             ScfRestrictedFunctor functor(TPDMcont_vector, Da);
             so_eri.compute_integrals_deriv1(functor);
             functor.finalize();
-        }
-        else{ // ROHF and UHF
+        } else {  // ROHF and UHF
             ScfUnrestrictedFunctor functor(TPDMcont_vector, Da, Db);
             so_eri.compute_integrals_deriv1(functor);
             functor.finalize();
         }
-        for (size_t cd=0; cd < cdsalcs_.ncd(); ++cd)
-            TPDMcont[cd] = TPDMcont_vector->get(cd);
+        for (size_t cd = 0; cd < cdsalcs_.ncd(); ++cd) TPDMcont[cd] = TPDMcont_vector->get(cd);
 
-    }
-    else {
+    } else {
         /* For correlated calculations, we have two different types.  The older CI/CC codes dump the
            Lagrangian to disk and density matrices to disk, and these both include the reference
            contributions.  The newer codes hold these quantities as member variables, but these contain only
            the correlated part.  The reference contributions must be harvested from the reference_wavefunction
            member.  If density fitting was used, we don't want to compute two electron contributions here*/
         if (wfn_->density_fitted()) {
-            X_ref_cont_vector    = SharedVector(new Vector(ncd));
-            D_ref_cont_vector    = SharedVector(new Vector(ncd));
-            TPDM_ref_cont_vector = SharedVector(new Vector(ncd));
-            X_ref_cont           = X_ref_cont_vector->pointer();
-            D_ref_cont           = D_ref_cont_vector->pointer();
-            TPDM_ref_cont        = TPDM_ref_cont_vector->pointer();
-            x_ref_contr_         = factory_->create_shared_matrix("Reference Lagrangian contribution to gradient", natom_, 3);
-            opdm_ref_contr_      = factory_->create_shared_matrix("Reference one-electron contribution to gradient", natom_, 3);
-            tpdm_ref_contr_      = factory_->create_shared_matrix("Reference two-electron contribution to gradient", natom_, 3);
+            X_ref_cont_vector = std::make_shared<Vector>(ncd);
+            TPDM_ref_cont_vector = std::make_shared<Vector>(ncd);
+            X_ref_cont = X_ref_cont_vector->pointer();
+            TPDM_ref_cont = TPDM_ref_cont_vector->pointer();
+            x_ref_contr_ = factory_->create_shared_matrix("Reference Lagrangian contribution to gradient", natom_, 3);
+            tpdm_ref_contr_ =
+                factory_->create_shared_matrix("Reference two-electron contribution to gradient", natom_, 3);
 
             // Here we need to extract the reference contributions
-            SharedMatrix X_ref  = ref_wfn->Lagrangian();
+            SharedMatrix X_ref = ref_wfn->Lagrangian();
             SharedMatrix Da_ref = ref_wfn->Da();
-            SharedMatrix Db_ref = ref_wfn->Db();
 
-            for (size_t cd=0; cd < cdsalcs_.ncd(); ++cd) {
-                double temp = Da_ref->vector_dot(h_deriv[cd]);
-                temp += Db_ref->vector_dot(h_deriv[cd]);
-                D_ref_cont[cd] = temp;
-            }
-
-            for (size_t cd=0; cd < cdsalcs_.ncd(); ++cd) {
+            for (size_t cd = 0; cd < cdsalcs_.ncd(); ++cd) {
                 double temp = -X_ref->vector_dot(s_deriv[cd]);
                 X_ref_cont[cd] = temp;
             }
@@ -575,44 +490,42 @@ SharedMatrix Deriv::compute()
             if (wfn_->same_a_b_orbs()) {
                 // In the restricted case, the alpha D is really the total D.  Undefine the beta one, so
                 // that the one-electron contribution, computed below, is correct.
-                Db = factory_->create_shared_matrix("NULL");
+                Db = factory_->create_shared_matrix("nullptr");
                 ScfRestrictedFunctor scf_functor(TPDM_ref_cont_vector, Da_ref);
                 ScfAndDfCorrelationRestrictedFunctor functor(Dcont_vector, scf_functor, Da, Da_ref);
                 so_eri.compute_integrals_deriv1(functor);
                 functor.finalize();
-            }
-            else
+            } else
                 throw PSIEXCEPTION("Unrestricted DF gradient not implemented yet.");
-        }
-        else {
+        } else {
             /* This is the part of the code reached from CI/CC.  In this case, the total (alpha+beta) density
                matrices are backtransformed to the SO basis and dumped to disk.  The one particle terms are
                just combined into the alpha density (with the beta OPDM set to zero, so that the one-particle
                terms below are computed correctly.  The two-particle terms are computed the same in both cases
                as all spin cases have been collapsed into the a single SO TPDM. */
 
-            if ( !deriv_density_backtransformed_ ) {
-
-                // Dial up an integral tranformation object to backtransform the OPDM, TPDM and Lagrangian
+            if (!deriv_density_backtransformed_) {
+                // Dial up an integral transformation object to backtransform the OPDM, TPDM and Lagrangian
                 std::vector<std::shared_ptr<MOSpace> > spaces;
                 spaces.push_back(MOSpace::all);
-                std::shared_ptr<IntegralTransform> ints_transform = std::shared_ptr<IntegralTransform>(
-                            new IntegralTransform(wfn_,
-                                                  spaces,
-                                                  wfn_->same_a_b_orbs() ? IntegralTransform::Restricted : IntegralTransform::Unrestricted, // Transformation type
-                                                  IntegralTransform::DPDOnly,    // Output buffer
-                                                  IntegralTransform::QTOrder,    // MO ordering
-                                                  IntegralTransform::None));     // Frozen orbitals?
+                std::shared_ptr<IntegralTransform> ints_transform =
+                    std::shared_ptr<IntegralTransform>(new IntegralTransform(
+                        wfn_, spaces,
+                        wfn_->same_a_b_orbs()
+                            ? IntegralTransform::TransformationType::Restricted
+                            : IntegralTransform::TransformationType::Unrestricted,  // Transformation type
+                        IntegralTransform::OutputType::DPDOnly,                     // Output buffer
+                        IntegralTransform::MOOrdering::QTOrder,                     // MO ordering
+                        IntegralTransform::FrozenOrbitals::None));                  // Frozen orbitals?
                 dpd_set_default(ints_transform->get_dpd_id());
 
                 // Some codes already presort the tpdm, do not follow this as an example
-                if (tpdm_presorted_)
-                    ints_transform->set_tpdm_already_presorted(true);
+                if (tpdm_presorted_) ints_transform->set_tpdm_already_presorted(true);
 
                 ints_transform->backtransform_density();
 
                 Da = factory_->create_shared_matrix("SO-basis OPDM");
-                Db = factory_->create_shared_matrix("NULL");
+                Db = factory_->create_shared_matrix("nullptr");
                 Da->load(_default_psio_lib_, PSIF_AO_OPDM);
                 X = factory_->create_shared_matrix("SO-basis Lagrangian");
                 X->load(_default_psio_lib_, PSIF_AO_OPDM);
@@ -626,24 +539,23 @@ SharedMatrix Deriv::compute()
             functor.finalize();
             _default_psio_lib_->close(PSIF_AO_TPDM, 1);
 
-            for (size_t cd=0; cd < cdsalcs_.ncd(); ++cd)
-                TPDMcont[cd] = TPDMcont_vector->get(cd);
-
+            for (size_t cd = 0; cd < cdsalcs_.ncd(); ++cd) TPDMcont[cd] = TPDMcont_vector->get(cd);
         }
 
-        outfile->Printf( "\n");
+        outfile->Printf("\n");
     }
-
 
     // Now, compute the one electron terms
-    for (size_t cd=0; cd < cdsalcs_.ncd(); ++cd) {
-        double temp = Dcont[cd]; // In the df case, the HxP2 terms are already in here
-        temp += Da->vector_dot(h_deriv[cd]);
-        temp += Db->vector_dot(h_deriv[cd]);
-        Dcont[cd] = temp;
+    auto Dtot_AO = std::make_shared<Matrix>("AO basis total D", wfn_->nso(), wfn_->nso());
+    if (wfn_->density_fitted()) {
+        Dtot_AO->add(wfn_->Da_subset("AO"));
+        Dtot_AO->add(wfn_->Db_subset("AO"));
     }
-
-    for (size_t cd=0; cd < cdsalcs_.ncd(); ++cd) {
+    auto Dtot = Da->clone();
+    Dtot->add(Db);
+    Dtot_AO->remove_symmetry(Dtot, wfn_->aotoso()->transpose());
+    opdm_contr_ = mints->core_hamiltonian_grad(Dtot_AO);
+    for (size_t cd = 0; cd < cdsalcs_.ncd(); ++cd) {
         double temp = X->vector_dot(s_deriv[cd]);
         Xcont[cd] = -temp;
     }
@@ -651,70 +563,42 @@ SharedMatrix Deriv::compute()
     // Transform the SALCs back to cartesian space
     SharedMatrix st = cdsalcs_.matrix();
     double **B = st->pointer(0);
-    double *cart = new double[3*natom_];
+    auto *cart = new double[3 * natom_];
 
-    // B^t g_q^t = g_x^t -> g_q B = g_x
-    C_DGEMM('n', 'n', 1, 3*natom_, cdsalcs_.ncd(),
-            1.0, Dcont, cdsalcs_.ncd(), B[0],
-            3*natom_, 0.0, cart, 3*natom_);
-
-    for (int a=0; a<natom_; ++a)
-        for (int xyz=0; xyz<3; ++xyz)
-            opdm_contr_->set(a, xyz, cart[3*a+xyz]);
-
-    if(D_ref_cont){
+    if (TPDM_ref_cont) {
         // B^t g_q^t = g_x^t -> g_q B = g_x
-        C_DGEMM('n', 'n', 1, 3*natom_, cdsalcs_.ncd(),
-                1.0, D_ref_cont, cdsalcs_.ncd(), B[0],
-                3*natom_, 0.0, cart, 3*natom_);
+        C_DGEMM('n', 'n', 1, 3 * natom_, cdsalcs_.ncd(), 1.0, TPDM_ref_cont, cdsalcs_.ncd(), B[0], 3 * natom_, 0.0,
+                cart, 3 * natom_);
 
-        for (int a=0; a<natom_; ++a)
-            for (int xyz=0; xyz<3; ++xyz)
-                opdm_ref_contr_->set(a, xyz, cart[3*a+xyz]);
-    }
-
-    if(TPDM_ref_cont){
+        for (int a = 0; a < natom_; ++a)
+            for (int xyz = 0; xyz < 3; ++xyz) tpdm_ref_contr_->set(a, xyz, cart[3 * a + xyz]);
+    } else {
         // B^t g_q^t = g_x^t -> g_q B = g_x
-        C_DGEMM('n', 'n', 1, 3*natom_, cdsalcs_.ncd(),
-                1.0, TPDM_ref_cont, cdsalcs_.ncd(), B[0],
-                3*natom_, 0.0, cart, 3*natom_);
+        C_DGEMM('n', 'n', 1, 3 * natom_, cdsalcs_.ncd(), 1.0, TPDMcont, cdsalcs_.ncd(), B[0], 3 * natom_, 0.0, cart,
+                3 * natom_);
 
-        for (int a=0; a<natom_; ++a)
-            for (int xyz=0; xyz<3; ++xyz)
-                tpdm_ref_contr_->set(a, xyz, cart[3*a+xyz]);
-    }else{
-        // B^t g_q^t = g_x^t -> g_q B = g_x
-        C_DGEMM('n', 'n', 1, 3*natom_, cdsalcs_.ncd(),
-                1.0, TPDMcont, cdsalcs_.ncd(), B[0],
-                3*natom_, 0.0, cart, 3*natom_);
-
-        for (int a=0; a<natom_; ++a)
-            for (int xyz=0; xyz<3; ++xyz)
-                tpdm_contr_->set(a, xyz, cart[3*a+xyz]);
+        for (int a = 0; a < natom_; ++a)
+            for (int xyz = 0; xyz < 3; ++xyz) tpdm_contr_->set(a, xyz, cart[3 * a + xyz]);
     }
 
     // B^t g_q^t = g_x^t -> g_q B = g_x
-    C_DGEMM('n', 'n', 1, 3*natom_, cdsalcs_.ncd(),
-            1.0, Xcont, cdsalcs_.ncd(), B[0],
-            3*natom_, 0.0, cart, 3*natom_);
+    C_DGEMM('n', 'n', 1, 3 * natom_, cdsalcs_.ncd(), 1.0, Xcont, cdsalcs_.ncd(), B[0], 3 * natom_, 0.0, cart,
+            3 * natom_);
 
-    for (int a=0; a<natom_; ++a)
-        for (int xyz=0; xyz<3; ++xyz)
-            x_contr_->set(a, xyz, cart[3*a+xyz]);
+    for (int a = 0; a < natom_; ++a)
+        for (int xyz = 0; xyz < 3; ++xyz) x_contr_->set(a, xyz, cart[3 * a + xyz]);
 
-    if(X_ref_cont){
+    if (X_ref_cont) {
         // B^t g_q^t = g_x^t -> g_q B = g_x
-        C_DGEMM('n', 'n', 1, 3*natom_, cdsalcs_.ncd(),
-                1.0, X_ref_cont, cdsalcs_.ncd(), B[0],
-                3*natom_, 0.0, cart, 3*natom_);
+        C_DGEMM('n', 'n', 1, 3 * natom_, cdsalcs_.ncd(), 1.0, X_ref_cont, cdsalcs_.ncd(), B[0], 3 * natom_, 0.0, cart,
+                3 * natom_);
 
-        for (int a=0; a<natom_; ++a)
-            for (int xyz=0; xyz<3; ++xyz)
-                x_ref_contr_->set(a, xyz, cart[3*a+xyz]);
+        for (int a = 0; a < natom_; ++a)
+            for (int xyz = 0; xyz < 3; ++xyz) x_ref_contr_->set(a, xyz, cart[3 * a + xyz]);
     }
 
     // Obtain nuclear repulsion contribution from the wavefunction
-    SharedMatrix enuc(new Matrix(molecule_->nuclear_repulsion_energy_deriv1()));
+    auto enuc = std::make_shared<Matrix>(molecule_->nuclear_repulsion_energy_deriv1(wfn_->get_dipole_field_strength()));
 
     // Print things out, after making sure that each component is properly symmetrized
     enuc->symmetrize_gradient(molecule_);
@@ -731,24 +615,19 @@ SharedMatrix Deriv::compute()
         x_ref_contr_->symmetrize_gradient(molecule_);
         x_ref_contr_->print_atom_vector();
     }
-    if (opdm_ref_contr_) {
-        opdm_ref_contr_->symmetrize_gradient(molecule_);
-        opdm_ref_contr_->print_atom_vector();
-    }
     if (tpdm_ref_contr_) {
         tpdm_ref_contr_->symmetrize_gradient(molecule_);
         tpdm_ref_contr_->print_atom_vector();
     }
 
     // Add everything up into a temp.
-    SharedMatrix corr(new Matrix("Correlation contribution to gradient", molecule_->natom(), 3));
+    auto corr = std::make_shared<Matrix>("Correlation contribution to gradient", molecule_->natom(), 3);
     gradient_->add(enuc);
     corr->add(opdm_contr_);
     corr->add(x_contr_);
     corr->add(tpdm_contr_);
     if (reference_separate && !ignore_reference_) {
         gradient_->add(x_ref_contr_);
-        gradient_->add(opdm_ref_contr_);
         gradient_->add(tpdm_ref_contr_);
         SharedMatrix scf_gradient(gradient_->clone());
         scf_gradient->set_name("Reference Gradient");
@@ -767,4 +646,4 @@ SharedMatrix Deriv::compute()
     return gradient_;
 }
 
-}
+}  // namespace psi

@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -27,22 +27,22 @@
  */
 
 #include "usapt0.h"
-#include "psi4/libfock/jk.h"
-#include "psi4/libmints/molecule.h"
+
+#include <ctime>
+
 #include "psi4/physconst.h"
+
+#include "psi4/lib3index/dfhelper.h"
+#include "psi4/libfock/jk.h"
 #include "psi4/libmints/basisset.h"
-#include "psi4/libmints/matrix.h"
-#include "psi4/libmints/vector.h"
 #include "psi4/libmints/integral.h"
+#include "psi4/libmints/matrix.h"
+#include "psi4/libmints/molecule.h"
+#include "psi4/libmints/vector.h"
 #include "psi4/libpsi4util/PsiOutStream.h"
 #include "psi4/libpsi4util/process.h"
-#include "psi4/lib3index/df_helper.h"
-
-using namespace psi;
-using namespace std;
 
 namespace psi {
-
 namespace sapt {
 
 // TODO: ROHF orbitals for coupled induction
@@ -71,6 +71,10 @@ USAPT0::USAPT0(SharedWavefunction d, SharedWavefunction mA, SharedWavefunction m
     primary_ = d->basisset();
     primary_A_ = mA->basisset();
     primary_B_ = mB->basisset();
+
+    dimer_field_ = d->get_dipole_field_strength();
+    monomer_A_field_ = mA->get_dipole_field_strength();
+    monomer_B_field_ = mB->get_dipole_field_strength();
 
     mp2fit_ = d->get_basisset("DF_BASIS_SAPT");
     jkfit_ = d->get_basisset("DF_BASIS_SCF");
@@ -183,7 +187,7 @@ void USAPT0::print_header() const {
 
     outfile->Printf("   => Resources <=\n\n");
 
-    outfile->Printf("    Memory (MB):       %11ld\n", (memory_ * 8L) / (1024L * 1024L));
+    outfile->Printf("    Memory [MiB]:      %11ld\n", (memory_ * 8L) / (1024L * 1024L));
     outfile->Printf("\n");
 
     outfile->Printf("   => Orbital Ranges <=\n\n");
@@ -377,15 +381,10 @@ void USAPT0::print_trailer() {
             if (coupled_ind_) {
                 Process::environment.globals["SAPT IND20,R ENERGY"] = energies_["Ind20,r"];
                 Process::environment.globals["SAPT EXCH-IND20,R ENERGY"] = energies_["Exch-Ind20,r"];
-            } else {
-                // We still store in the R variants so the PsiVars machinery works.
-                outfile->Printf("    WARNING: **Uncoupled** SAPT induction stored in SAPT IND20,R ENERGY \n");
-                outfile->Printf("             and in SAPT EXCH-IND20,R ENERGY \n");
-                Process::environment.globals["SAPT IND20,R ENERGY"] = energies_["Ind20,u"];
-                Process::environment.globals["SAPT EXCH-IND20,R ENERGY"] = energies_["Exch-Ind20,u"];
-                Process::environment.globals["SAPT IND20,U ENERGY"] = energies_["Ind20,u"];
-                Process::environment.globals["SAPT EXCH-IND20,U ENERGY"] = energies_["Exch-Ind20,u"];
-            }
+            }  // We always compute uncoupled induction in this routine
+            Process::environment.globals["SAPT IND20,U ENERGY"] = energies_["Ind20,u"];
+            Process::environment.globals["SAPT EXCH-IND20,U ENERGY"] = energies_["Exch-Ind20,u"];
+
             Process::environment.globals["SAPT HF TOTAL ENERGY"] = energies_["HF"];
             // Process::environment.globals["SAPT CT ENERGY"] = e_ind20_ + e_exch_ind20_;
 
@@ -430,8 +429,6 @@ void USAPT0::fock_terms() {
 
     // => JK Object <= //
 
-    std::shared_ptr<JK> jk = JK::build_JK(primary_, jkfit_, options_);
-
     // TODO: Recompute exactly how much memory is needed
     int naA = Cocca_A_->ncol();
     int nbA = Coccb_A_->ncol();
@@ -448,6 +445,9 @@ void USAPT0::fock_terms() {
     if (jk_memory < 0L) {
         throw PSIEXCEPTION("Too little static memory for USAPT::fock_terms");
     }
+
+    std::shared_ptr<JK> jk = JK::build_JK(primary_, jkfit_, options_, false, (size_t)jk_memory);
+
     jk->set_memory((size_t)jk_memory);
 
     // ==> Generalized Fock Source Terms [Elst/Exch] <== //
@@ -572,9 +572,9 @@ void USAPT0::fock_terms() {
     // Classical physics (watch for cancellation!)
 
     double Enuc = 0.0;
-    Enuc += dimer_->nuclear_repulsion_energy();
-    Enuc -= monomer_A_->nuclear_repulsion_energy();
-    Enuc -= monomer_B_->nuclear_repulsion_energy();
+    Enuc += dimer_->nuclear_repulsion_energy(dimer_field_);
+    Enuc -= monomer_A_->nuclear_repulsion_energy(monomer_A_field_);
+    Enuc -= monomer_B_->nuclear_repulsion_energy(monomer_B_field_);
 
     SharedMatrix D_A(Da_A->clone());
     D_A->add(Db_A);
@@ -807,7 +807,7 @@ void USAPT0::fock_terms() {
 
     // ==> Uncorrelated Second-Order Response Terms [Induction] <== //
 
-    // => ExchInd pertubations <= //
+    // => ExchInd perturbations <= //
 
     std::shared_ptr<Matrix> C_Oa_B = Matrix::triplet(Da_A, S, Cocca_B_);
     std::shared_ptr<Matrix> C_Ob_B = Matrix::triplet(Db_A, S, Coccb_B_);
@@ -1155,16 +1155,16 @@ std::shared_ptr<Matrix> USAPT0::build_exch_ind_pot(std::map<std::string, std::sh
     return Matrix::triplet(Ca, W, Cr, true, false, false);
 }
 std::shared_ptr<Matrix> USAPT0::build_S(std::shared_ptr<BasisSet> basis) {
-    std::shared_ptr<IntegralFactory> factory(new IntegralFactory(basis));
+    auto factory = std::make_shared<IntegralFactory>(basis);
     std::shared_ptr<OneBodyAOInt> Sint(factory->ao_overlap());
-    std::shared_ptr<Matrix> S(new Matrix("S (AO)", basis->nbf(), basis->nbf()));
+    auto S = std::make_shared<Matrix>("S (AO)", basis->nbf(), basis->nbf());
     Sint->compute(S);
     return S;
 }
 std::shared_ptr<Matrix> USAPT0::build_V(std::shared_ptr<BasisSet> basis) {
-    std::shared_ptr<IntegralFactory> factory(new IntegralFactory(basis));
+    auto factory = std::make_shared<IntegralFactory>(basis);
     std::shared_ptr<OneBodyAOInt> Sint(factory->ao_potential());
-    std::shared_ptr<Matrix> S(new Matrix("V (AO)", basis->nbf(), basis->nbf()));
+    auto S = std::make_shared<Matrix>("V (AO)", basis->nbf(), basis->nbf());
     Sint->compute(S);
     return S;
 }
@@ -1174,8 +1174,8 @@ std::shared_ptr<Matrix> USAPT0::build_Sija(std::shared_ptr<Matrix> S) {
     int nocc_B = Cocca_B_->ncol();
     int nocc = nocc_A + nocc_B;
 
-    std::shared_ptr<Matrix> Sij(new Matrix("Sija (MO)", nocc, nocc));
-    std::shared_ptr<Matrix> T(new Matrix("T", nso, nocc_B));
+    auto Sij = std::make_shared<Matrix>("Sija (MO)", nocc, nocc);
+    auto T = std::make_shared<Matrix>("T", nso, nocc_B);
 
     double** Sp = S->pointer();
     double** Tp = T->pointer();
@@ -1196,8 +1196,8 @@ std::shared_ptr<Matrix> USAPT0::build_Sijb(std::shared_ptr<Matrix> S) {
     int nocc_B = Coccb_B_->ncol();
     int nocc = nocc_A + nocc_B;
 
-    std::shared_ptr<Matrix> Sij(new Matrix("Sijb (MO)", nocc, nocc));
-    std::shared_ptr<Matrix> T(new Matrix("T", nso, nocc_B));
+    auto Sij = std::make_shared<Matrix>("Sijb (MO)", nocc, nocc);
+    auto T = std::make_shared<Matrix>("T", nso, nocc_B);
 
     double** Sp = S->pointer();
     double** Tp = T->pointer();
@@ -1216,7 +1216,7 @@ std::shared_ptr<Matrix> USAPT0::build_Sijb(std::shared_ptr<Matrix> S) {
 std::shared_ptr<Matrix> USAPT0::build_Sij_n(std::shared_ptr<Matrix> Sij) {
     int nocc = Sij->nrow();
 
-    std::shared_ptr<Matrix> Sij2(new Matrix("Sij^inf (MO)", nocc, nocc));
+    auto Sij2 = std::make_shared<Matrix>("Sij^inf (MO)", nocc, nocc);
 
     double** Sijp = Sij->pointer();
     double** Sij2p = Sij2->pointer();
@@ -1261,15 +1261,15 @@ std::map<std::string, std::shared_ptr<Matrix> > USAPT0::build_Cbar(std::shared_p
     double** CBp = Cocca_B_->pointer();
     double** Cp;
 
-    Cbar["C_Ta_A"] = std::shared_ptr<Matrix>(new Matrix("C_Ta_A", nso, nA));
+    Cbar["C_Ta_A"] = std::make_shared<Matrix>("C_Ta_A", nso, nA);
     Cp = Cbar["C_Ta_A"]->pointer();
     C_DGEMM('N', 'N', nso, nA, nA, 1.0, CAp[0], nA, &Sp[0][0], no, 0.0, Cp[0], nA);
 
-    Cbar["C_Ta_B"] = std::shared_ptr<Matrix>(new Matrix("C_Ta_B", nso, nB));
+    Cbar["C_Ta_B"] = std::make_shared<Matrix>("C_Ta_B", nso, nB);
     Cp = Cbar["C_Ta_B"]->pointer();
     C_DGEMM('N', 'N', nso, nB, nB, 1.0, CBp[0], nB, &Sp[nA][nA], no, 0.0, Cp[0], nB);
 
-    Cbar["C_Ta_BA"] = std::shared_ptr<Matrix>(new Matrix("C_Ta_BA", nso, nA));
+    Cbar["C_Ta_BA"] = std::make_shared<Matrix>("C_Ta_BA", nso, nA);
     Cp = Cbar["C_Ta_BA"]->pointer();
     C_DGEMM('N', 'N', nso, nA, nB, 1.0, CBp[0], nB, &Sp[nA][0], no, 0.0, Cp[0], nA);
 
@@ -1283,15 +1283,15 @@ std::map<std::string, std::shared_ptr<Matrix> > USAPT0::build_Cbar(std::shared_p
     CAp = Coccb_A_->pointer();
     CBp = Coccb_B_->pointer();
 
-    Cbar["C_Tb_A"] = std::shared_ptr<Matrix>(new Matrix("C_Tb_A", nso, nA));
+    Cbar["C_Tb_A"] = std::make_shared<Matrix>("C_Tb_A", nso, nA);
     Cp = Cbar["C_Tb_A"]->pointer();
     C_DGEMM('N', 'N', nso, nA, nA, 1.0, CAp[0], nA, &Sp[0][0], no, 0.0, Cp[0], nA);
 
-    Cbar["C_Tb_B"] = std::shared_ptr<Matrix>(new Matrix("C_Tb_B", nso, nB));
+    Cbar["C_Tb_B"] = std::make_shared<Matrix>("C_Tb_B", nso, nB);
     Cp = Cbar["C_Tb_B"]->pointer();
     C_DGEMM('N', 'N', nso, nB, nB, 1.0, CBp[0], nB, &Sp[nA][nA], no, 0.0, Cp[0], nB);
 
-    Cbar["C_Tb_BA"] = std::shared_ptr<Matrix>(new Matrix("C_Tb_BA", nso, nA));
+    Cbar["C_Tb_BA"] = std::make_shared<Matrix>("C_Tb_BA", nso, nA);
     Cp = Cbar["C_Tb_BA"]->pointer();
     C_DGEMM('N', 'N', nso, nA, nB, 1.0, CBp[0], nB, &Sp[nA][0], no, 0.0, Cp[0], nA);
 
@@ -1302,7 +1302,7 @@ std::map<std::string, std::shared_ptr<Matrix> > USAPT0::compute_x(std::shared_pt
                                                                   std::shared_ptr<Matrix> wb_B,
                                                                   std::shared_ptr<Matrix> wa_A,
                                                                   std::shared_ptr<Matrix> wb_A) {
-    std::shared_ptr<CPKS_USAPT0> cpks(new CPKS_USAPT0);
+    auto cpks = std::make_shared<CPKS_USAPT0>();
 
     // Effective constructor
     cpks->delta_ = cpks_delta_;
@@ -1404,10 +1404,10 @@ void CPKS_USAPT0::compute_cpks() {
     outfile->Printf("    Convergence = %11.3E\n", delta_);
     outfile->Printf("\n");
 
-    time_t start;
-    time_t stop;
+    std::time_t start;
+    std::time_t stop;
 
-    start = time(NULL);
+    start = std::time(nullptr);
 
     outfile->Printf("    -----------------------------------------\n");
     outfile->Printf("    %-4s %11s  %11s  %10s\n", "Iter", "Monomer A", "Monomer B", "Time [s]");
@@ -1485,7 +1485,7 @@ void CPKS_USAPT0::compute_cpks() {
             r2B = sqrt(r2B) / b2B;
         }
 
-        stop = time(NULL);
+        stop = std::time(nullptr);
         outfile->Printf("    %-4d %11.3E%1s %11.3E%1s %10ld\n", iter + 1, r2A, (r2A < delta_ ? "*" : " "), r2B,
                         (r2B < delta_ ? "*" : " "), stop - start);
 
@@ -1581,7 +1581,7 @@ std::map<std::string, std::shared_ptr<Matrix> > CPKS_USAPT0::product(
         int nso = Cvira_A_->nrow();
         double** Cp = Cvira_A_->pointer();
         double** bp = b["Aa"]->pointer();
-        std::shared_ptr<Matrix> T(new Matrix("T", nso, no));
+        auto T = std::make_shared<Matrix>("T", nso, no);
         double** Tp = T->pointer();
         C_DGEMM('N', 'T', nso, no, nv, 1.0, Cp[0], nv, bp[0], nv, 0.0, Tp[0], no);
         Cr.push_back(T);
@@ -1590,7 +1590,7 @@ std::map<std::string, std::shared_ptr<Matrix> > CPKS_USAPT0::product(
         nso = Cvirb_A_->nrow();
         Cp = Cvirb_A_->pointer();
         bp = b["Ab"]->pointer();
-        T = std::shared_ptr<Matrix>(new Matrix("T", nso, no));
+        T = std::make_shared<Matrix>("T", nso, no);
         Tp = T->pointer();
         C_DGEMM('N', 'T', nso, no, nv, 1.0, Cp[0], nv, bp[0], nv, 0.0, Tp[0], no);
         Cr.push_back(T);
@@ -1604,7 +1604,7 @@ std::map<std::string, std::shared_ptr<Matrix> > CPKS_USAPT0::product(
         int nso = Cvira_B_->nrow();
         double** Cp = Cvira_B_->pointer();
         double** bp = b["Ba"]->pointer();
-        std::shared_ptr<Matrix> T(new Matrix("T", nso, no));
+        auto T = std::make_shared<Matrix>("T", nso, no);
         double** Tp = T->pointer();
         C_DGEMM('N', 'T', nso, no, nv, 1.0, Cp[0], nv, bp[0], nv, 0.0, Tp[0], no);
         Cr.push_back(T);
@@ -1613,7 +1613,7 @@ std::map<std::string, std::shared_ptr<Matrix> > CPKS_USAPT0::product(
         nso = Cvirb_B_->nrow();
         Cp = Cvirb_B_->pointer();
         bp = b["Bb"]->pointer();
-        T = std::shared_ptr<Matrix>(new Matrix("T", nso, no));
+        T = std::make_shared<Matrix>("T", nso, no);
         Tp = T->pointer();
         C_DGEMM('N', 'T', nso, no, nv, 1.0, Cp[0], nv, bp[0], nv, 0.0, Tp[0], no);
         Cr.push_back(T);
@@ -1646,8 +1646,8 @@ std::map<std::string, std::shared_ptr<Matrix> > CPKS_USAPT0::product(
         int no = b["Aa"]->nrow();
         int nv = b["Aa"]->ncol();
         int nso = Cvira_A_->nrow();
-        T = std::shared_ptr<Matrix>(new Matrix("T", no, nso));
-        s["Aa"] = std::shared_ptr<Matrix>(new Matrix("SAa", no, nv));
+        T = std::make_shared<Matrix>("T", no, nso);
+        s["Aa"] = std::make_shared<Matrix>("SAa", no, nv);
         double** Cop = Cocca_A_->pointer();
         double** Cvp = Cvira_A_->pointer();
         double** Jp = Jva->pointer();
@@ -1669,8 +1669,8 @@ std::map<std::string, std::shared_ptr<Matrix> > CPKS_USAPT0::product(
         no = b["Ab"]->nrow();
         nv = b["Ab"]->ncol();
         nso = Cvirb_A_->nrow();
-        T = std::shared_ptr<Matrix>(new Matrix("T", no, nso));
-        s["Ab"] = std::shared_ptr<Matrix>(new Matrix("SAb", no, nv));
+        T = std::make_shared<Matrix>("T", no, nso);
+        s["Ab"] = std::make_shared<Matrix>("SAb", no, nv);
         Cop = Coccb_A_->pointer();
         Cvp = Cvirb_A_->pointer();
         Jp = Jvb->pointer();
@@ -1708,8 +1708,8 @@ std::map<std::string, std::shared_ptr<Matrix> > CPKS_USAPT0::product(
         int no = b["Ba"]->nrow();
         int nv = b["Ba"]->ncol();
         int nso = Cvira_B_->nrow();
-        T = std::shared_ptr<Matrix>(new Matrix("T", no, nso));
-        s["Ba"] = std::shared_ptr<Matrix>(new Matrix("SBa", no, nv));
+        T = std::make_shared<Matrix>("T", no, nso);
+        s["Ba"] = std::make_shared<Matrix>("SBa", no, nv);
         double** Cop = Cocca_B_->pointer();
         double** Cvp = Cvira_B_->pointer();
         double** Jp = Jva->pointer();
@@ -1732,8 +1732,8 @@ std::map<std::string, std::shared_ptr<Matrix> > CPKS_USAPT0::product(
         no = b["Bb"]->nrow();
         nv = b["Bb"]->ncol();
         nso = Cvirb_B_->nrow();
-        T = std::shared_ptr<Matrix>(new Matrix("T", no, nso));
-        s["Bb"] = std::shared_ptr<Matrix>(new Matrix("SBb", no, nv));
+        T = std::make_shared<Matrix>("T", no, nso);
+        s["Bb"] = std::make_shared<Matrix>("SBb", no, nv);
         Cop = Coccb_B_->pointer();
         Cvp = Cvirb_B_->pointer();
         Jp = Jvb->pointer();
@@ -1927,7 +1927,7 @@ void USAPT0::mp2_terms() {
 
     // => Memory <= //
 
-    // => Integrals from DF_Helper <= //
+    // => Integrals from DFHelper <= //
 
     std::vector<std::shared_ptr<Matrix> > Cs;
     Cs.push_back(Caocca_A_);
@@ -1962,9 +1962,9 @@ void USAPT0::mp2_terms() {
         ncol += (size_t)mat->ncol();
     }
 
-    auto dfh (std::make_shared<DF_Helper>(primary_, mp2fit_));
+    auto dfh(std::make_shared<DFHelper>(primary_, mp2fit_));
     dfh->set_memory(memory_ - Cs[0]->nrow() * ncol);
-    dfh->set_method("DIRECT");
+    dfh->set_method("DIRECT_iaQ");
     dfh->set_nthreads(nT);
     dfh->initialize();
 
@@ -2066,23 +2066,23 @@ void USAPT0::mp2_terms() {
 
     // => Tensor Slices <= //
 
-    std::shared_ptr<Matrix> Aa_ar(new Matrix("Aa_ar", maxa_a * nar, nQ));
-    std::shared_ptr<Matrix> Aa_bs(new Matrix("Aa_bs", maxa_b * nas, nQ));
-    std::shared_ptr<Matrix> Ba_as(new Matrix("Ba_as", maxa_a * nas, nQ));
-    std::shared_ptr<Matrix> Ba_br(new Matrix("Ba_br", maxa_b * nar, nQ));
-    std::shared_ptr<Matrix> Ca_as(new Matrix("Ca_as", maxa_a * nas, nQ));
-    std::shared_ptr<Matrix> Ca_br(new Matrix("Ca_br", maxa_b * nar, nQ));
-    std::shared_ptr<Matrix> Da_ar(new Matrix("Da_ar", maxa_a * nar, nQ));
-    std::shared_ptr<Matrix> Da_bs(new Matrix("Da_bs", maxa_b * nas, nQ));
+    auto Aa_ar = std::make_shared<Matrix>("Aa_ar", maxa_a * nar, nQ);
+    auto Aa_bs = std::make_shared<Matrix>("Aa_bs", maxa_b * nas, nQ);
+    auto Ba_as = std::make_shared<Matrix>("Ba_as", maxa_a * nas, nQ);
+    auto Ba_br = std::make_shared<Matrix>("Ba_br", maxa_b * nar, nQ);
+    auto Ca_as = std::make_shared<Matrix>("Ca_as", maxa_a * nas, nQ);
+    auto Ca_br = std::make_shared<Matrix>("Ca_br", maxa_b * nar, nQ);
+    auto Da_ar = std::make_shared<Matrix>("Da_ar", maxa_a * nar, nQ);
+    auto Da_bs = std::make_shared<Matrix>("Da_bs", maxa_b * nas, nQ);
 
-    std::shared_ptr<Matrix> Ab_ar(new Matrix("Ab_ar", maxb_a * nbr, nQ));
-    std::shared_ptr<Matrix> Ab_bs(new Matrix("Ab_bs", maxb_b * nbs, nQ));
-    std::shared_ptr<Matrix> Bb_as(new Matrix("Bb_as", maxb_a * nbs, nQ));
-    std::shared_ptr<Matrix> Bb_br(new Matrix("Bb_br", maxb_b * nbr, nQ));
-    std::shared_ptr<Matrix> Cb_as(new Matrix("Cb_as", maxb_a * nbs, nQ));
-    std::shared_ptr<Matrix> Cb_br(new Matrix("Cb_br", maxb_b * nbr, nQ));
-    std::shared_ptr<Matrix> Db_ar(new Matrix("Db_ar", maxb_a * nbr, nQ));
-    std::shared_ptr<Matrix> Db_bs(new Matrix("Db_bs", maxb_b * nbs, nQ));
+    auto Ab_ar = std::make_shared<Matrix>("Ab_ar", maxb_a * nbr, nQ);
+    auto Ab_bs = std::make_shared<Matrix>("Ab_bs", maxb_b * nbs, nQ);
+    auto Bb_as = std::make_shared<Matrix>("Bb_as", maxb_a * nbs, nQ);
+    auto Bb_br = std::make_shared<Matrix>("Bb_br", maxb_b * nbr, nQ);
+    auto Cb_as = std::make_shared<Matrix>("Cb_as", maxb_a * nbs, nQ);
+    auto Cb_br = std::make_shared<Matrix>("Cb_br", maxb_b * nbr, nQ);
+    auto Db_ar = std::make_shared<Matrix>("Db_ar", maxb_a * nbr, nQ);
+    auto Db_bs = std::make_shared<Matrix>("Db_bs", maxb_b * nbs, nQ);
 
     // => Thread Work Arrays <= //
 
@@ -2095,14 +2095,14 @@ void USAPT0::mp2_terms() {
     std::vector<std::shared_ptr<Matrix> > Tab_rs;
     std::vector<std::shared_ptr<Matrix> > Vab_rs;
     for (int t = 0; t < nT; t++) {
-        Taa_rs.push_back(std::shared_ptr<Matrix>(new Matrix("Taa_rs", nar, nas)));
-        Vaa_rs.push_back(std::shared_ptr<Matrix>(new Matrix("Vaa_rs", nar, nas)));
-        Tbb_rs.push_back(std::shared_ptr<Matrix>(new Matrix("Tbb_rs", nbr, nbs)));
-        Vbb_rs.push_back(std::shared_ptr<Matrix>(new Matrix("Vbb_rs", nbr, nbs)));
-        Tab_rs.push_back(std::shared_ptr<Matrix>(new Matrix("Tab_rs", nar, nbs)));
-        Vab_rs.push_back(std::shared_ptr<Matrix>(new Matrix("Vab_rs", nar, nbs)));
-        Tba_rs.push_back(std::shared_ptr<Matrix>(new Matrix("Tba_rs", nbr, nas)));
-        Vba_rs.push_back(std::shared_ptr<Matrix>(new Matrix("Vba_rs", nbr, nas)));
+        Taa_rs.push_back(std::make_shared<Matrix>("Taa_rs", nar, nas));
+        Vaa_rs.push_back(std::make_shared<Matrix>("Vaa_rs", nar, nas));
+        Tbb_rs.push_back(std::make_shared<Matrix>("Tbb_rs", nbr, nbs));
+        Vbb_rs.push_back(std::make_shared<Matrix>("Vbb_rs", nbr, nbs));
+        Tab_rs.push_back(std::make_shared<Matrix>("Tab_rs", nar, nbs));
+        Vab_rs.push_back(std::make_shared<Matrix>("Vab_rs", nar, nbs));
+        Tba_rs.push_back(std::make_shared<Matrix>("Tba_rs", nbr, nas));
+        Vba_rs.push_back(std::make_shared<Matrix>("Vba_rs", nbr, nas));
     }
 
     // => Pointers <= //
@@ -2197,7 +2197,7 @@ void USAPT0::mp2_terms() {
 
     // ==> Master Loop <== //
 
-    for (size_t aastart = 0, bastart = 0; aastart < max(naa, nba); aastart += maxa_a, bastart += maxb_a) {
+    for (size_t aastart = 0, bastart = 0; aastart < std::max(naa, nba); aastart += maxa_a, bastart += maxb_a) {
         size_t na_ablock = (aastart + maxa_a >= naa ? naa - aastart : maxa_a);
         size_t nb_ablock = (aastart + maxb_a >= nba ? nba - aastart : maxb_a);
 
@@ -2215,7 +2215,7 @@ void USAPT0::mp2_terms() {
             dfh->fill_tensor("Db_ar", Db_ar, {bastart, bastart + nb_ablock});
         }
 
-        for (size_t abstart = 0, bbstart = 0; abstart < max(nab, nbb); abstart += maxa_b, bbstart += maxb_b) {
+        for (size_t abstart = 0, bbstart = 0; abstart < std::max(nab, nbb); abstart += maxa_b, bbstart += maxb_b) {
             size_t na_bblock = (abstart + maxa_b >= nab ? nab - abstart : maxa_b);
             size_t nb_bblock = (abstart + maxb_b >= nbb ? nbb - abstart : maxb_b);
 
@@ -2251,16 +2251,16 @@ void USAPT0::mp2_terms() {
                 double** Vrsp;
                 double** Aarp;
                 double** Absp;
-                double** Bbrp = NULL;
-                double** Basp = NULL;
-                double** Casp = NULL;
-                double** Cbrp = NULL;
+                double** Bbrp = nullptr;
+                double** Basp = nullptr;
+                double** Casp = nullptr;
+                double** Cbrp = nullptr;
                 double** Darp;
                 double** Dbsp;
-                double** Qbrp = NULL;
-                double** Qasp = NULL;
-                double** Sbrp = NULL;
-                double** Sasp = NULL;
+                double** Qbrp = nullptr;
+                double** Qasp = nullptr;
+                double** Sbrp = nullptr;
+                double** Sasp = nullptr;
                 double** Qarp;
                 double** Qbsp;
                 double** SAbsp;
@@ -2379,7 +2379,7 @@ void USAPT0::mp2_terms() {
 
                 C_DGEMM('N', 'T', nr, ns, nQ, 1.0, Aarp[(a)*nr], nQ, Dbsp[(b)*ns], nQ, 0.0, Vrsp[0], ns);
                 C_DGEMM('N', 'T', nr, ns, nQ, 1.0, Darp[(a)*nr], nQ, Absp[(b)*ns], nQ, 1.0, Vrsp[0], ns);
-                if (Bbrp != NULL) {
+                if (Bbrp != nullptr) {
                     C_DGEMM('N', 'T', nr, ns, nQ, 1.0, Bbrp[(b)*nr], nQ, Basp[(a)*ns], nQ, 1.0, Vrsp[0], ns);
                     C_DGEMM('N', 'T', nr, ns, nQ, -1.0, Cbrp[(b)*nr], nQ, Casp[(a)*ns], nQ, 1.0, Vrsp[0], ns);
 
@@ -2407,5 +2407,5 @@ void USAPT0::mp2_terms() {
     outfile->Printf("    Exch-Disp20         = %18.12lf H\n", ExchDisp20);
     outfile->Printf("\n");
 }
-}
-}  // End namespaces
+}  // namespace sapt
+}  // namespace psi

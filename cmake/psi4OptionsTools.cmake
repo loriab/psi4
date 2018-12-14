@@ -41,40 +41,54 @@ endmacro(option_with_default)
 
 # Common guts to adding a Psi4 library irrespective of bin vs. lib home
 #
-# Syntax psi4_add_module(<lib or bin> <library name> <CMake list of sources> <dependencies>)
+# Syntax psi4_add_module(<lib or bin> <library name> <CMake list of sources>)
 #
 macro(psi4_add_module binlib libname sources)
+  list(APPEND _valid_binlib bin lib)
+  if(NOT ${binlib} IN_LIST _valid_binlib)
+    message(FATAL_ERROR "Passed module type ${binlib} not among valid choices (${_valid_binlib})")
+  endif()
 
-    set(current_sources ${${sources}};)
-    list(SORT current_sources)
+  add_library(${libname} STATIC "${${sources}}")
+  set_target_properties(${libname}
+    PROPERTIES
+      CXX_VISIBILITY_PRESET hidden
+      POSITION_INDEPENDENT_CODE 1
+      VISIBILITY_INLINES_HIDDEN 1
+    )
 
-    add_library(${libname} STATIC ${current_sources})
-    set_target_properties(${libname} PROPERTIES POSITION_INDEPENDENT_CODE ${BUILD_FPIC})
+  # This provides OpenMP flags and access to BLAS/LAPACK headers
+  target_link_libraries(${libname} 
+    PRIVATE 
+      tgt::lapack
+    )
 
-    # library modules get their headers installed
-    if((${binlib} MATCHES lib) OR (${binlib} MATCHES binlib))
-        install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/psi4
-                FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.i")
-    endif()
+  # library modules get their headers installed
+  if(${binlib} MATCHES lib)
+    install(
+      DIRECTORY
+        ${CMAKE_CURRENT_SOURCE_DIR}
+      DESTINATION
+        ${CMAKE_INSTALL_INCLUDEDIR}/psi4
+      FILES_MATCHING
+        PATTERN "*.h"
+        PATTERN "*.hpp"
+        PATTERN "*.i"
+      )
+  endif()
 
-    # binary modules explicitly compiled into psi4.so
-    if((${binlib} MATCHES bin) OR (${binlib} MATCHES binlib))
-        set_property(GLOBAL APPEND PROPERTY BINLIST ${libname})
-    endif()
-
-    set(depend_name "${ARGN}")
-    foreach(name_i IN LISTS depend_name)
-        target_link_libraries(${libname} PRIVATE ${name_i})
-    endforeach()
-    target_link_libraries(${libname} PRIVATE pybind11::module)
-    target_link_libraries(${libname} PRIVATE tgt::lapack)
+  # Everything gets linked into core
+  if(${binlib} MATCHES lib)
+    set_property(GLOBAL APPEND PROPERTY LINKLIBLIST ${libname})
+  else()
+    set_property(GLOBAL APPEND PROPERTY LINKBINLIST ${libname})
+  endif()
 endmacro()
 
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 if(CMAKE_Fortran_COMPILER)
-    include(CheckFortranCompilerFlag)  # CMake >= 3.3, so local copy in cmake/
+    include(CheckFortranCompilerFlag)
 endif()
 
 #The guts of the next two functions, use the wrappers please
@@ -95,6 +109,7 @@ set(CMAKE_REQUIRED_QUIET_SAVE ${CMAKE_REQUIRED_QUIET})
          break()
       endif()
       unset(test_option CACHE)
+      set(CMAKE_REQUIRED_FLAGS "${flag_i}")
       if(${is_C} EQUAL 0)
           CHECK_C_COMPILER_FLAG("${flag_i}" test_option)
           set(description_to_print CMAKE_C_FLAGS)
@@ -117,6 +132,7 @@ set(CMAKE_REQUIRED_QUIET_SAVE ${CMAKE_REQUIRED_QUIET})
            message(STATUS "${msg_base} Failed")
         endif()
       endif()
+      unset(CMAKE_REQUIRED_FLAGS)
    endforeach()
    set(CMAKE_REQUIRED_QUIET ${CMAKE_REQUIRED_QUIET_SAVE})
 endmacro()
@@ -187,21 +203,6 @@ macro(option_with_flags option msg default)
     endif()
 endmacro()
 
-#Macro so I don't have to look at a ton of if statements for adding each plugin
-#
-#Syntax: optional_plugin(<plugin name>)
-#
-macro(optional_plugin plugin_name)
-string(TOUPPER ${plugin_name} PLUGIN_NAME)
-if(${ENABLE_${PLUGIN_NAME}})
-   find_package(${plugin_name} REQUIRED)
-   set_property(GLOBAL APPEND PROPERTY PSI4_MODULES ${${PLUGIN_NAME}_LIBRARIES})
-   add_definitions(-DENABLE_${PLUGIN_NAME})
-else()
-   add_library(${plugin_name} INTERFACE)
-endif()
-endmacro(optional_plugin plugin_name test_names)
-
 #Macro for adding a skeleton plugin
 macro(add_skeleton_plugin PLUG TEMPLATE TESTLABELS)
     set(CCSD "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -226,5 +227,3 @@ macro(add_skeleton_plugin PLUG TEMPLATE TESTLABELS)
     include(TestingMacros)
     add_regression_test(${PLUG} "${TESTLABELS}")
 endmacro()
-
-

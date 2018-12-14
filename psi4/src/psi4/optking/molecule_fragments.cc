@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -67,7 +67,7 @@ using namespace v3d;
 //
 // If fragment_mode == MULTI, then this function splits one fragment into more
 // than one, according to the connectivity previously established for the fragment.
-void MOLECULE::fragmentize(void) {
+void MOLECULE::fragmentize() {
   int i, j, xyz;
 
   if (fragments.size() != 1) return;
@@ -289,7 +289,7 @@ void MOLECULE::fragmentize(void) {
 
 // add interfragment coordinates
 // for now, coordinates for fragments in order 1-2-3-
-void MOLECULE::add_interfragment(void) {
+void MOLECULE::add_interfragment() {
   int nA, nB;               // fragment natom
   const double * const * A; // fragment geometries
   const double * const * B;
@@ -299,7 +299,7 @@ void MOLECULE::add_interfragment(void) {
   double tval, min;
   int ndA, ndB; // num of reference atoms on each fragment
   char error_msg[100];
-  double **weight_A=NULL, **weight_B=NULL;
+  double **weight_A=nullptr, **weight_B=nullptr;
   FRAG *Afrag, *Bfrag;
   if (fragments.size() == 1) return;
   std::vector<std::vector<std::vector<int> > > frag_ref_atoms = Opt_params.frag_ref_atoms;
@@ -520,7 +520,7 @@ void MOLECULE::add_interfragment(void) {
       else
         ndB = 3;
 
-      INTERFRAG * one_IF = new INTERFRAG(Afrag, Bfrag, frag_i, frag_i+1, NULL, NULL, ndA, ndB, true);
+      INTERFRAG * one_IF = new INTERFRAG(Afrag, Bfrag, frag_i, frag_i+1, nullptr, nullptr, ndA, ndB, true);
       interfragments.push_back(one_IF);
     }
 
@@ -531,7 +531,7 @@ void MOLECULE::add_interfragment(void) {
 // Check to see if displacement along any of the interfragment modes breaks
 // the symmetry of the molecule.  If so, freeze it.  This is a hack for now.
 // Will it work?  RAK 3-2012
-void MOLECULE::freeze_interfragment_asymm(void) {
+void MOLECULE::freeze_interfragment_asymm() {
   double **coord_orig = g_geom_2D();
   double disp_size = 0.1;
 

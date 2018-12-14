@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2017 The Psi4 Developers.
+.. # Copyright (c) 2007-2018 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -38,8 +38,8 @@
 Generation of Cube Files |w---w| :py:func:`~psi4.cubeprop`
 ==========================================================
 
-.. codeauthor:: Robert M. Parrish and Francesco A. Evangelista
-.. sectionauthor:: Francesco A. Evangelista
+.. codeauthor:: Robert M. Parrish, Francesco A. Evangelista and Peter Kraus
+.. sectionauthor:: Francesco A. Evangelista and Peter Kraus
 
 .. autofunction:: psi4.cubeprop(wfn)
 
@@ -80,8 +80,19 @@ should be generated only for alpha orbitals 5 (HOMO) and 6 (LUMO) and
 beta orbitals 5 (indicated as -5) and 6.
 If the option |globals__cubeprop_orbitals| is not provided, then cube files are
 generated for all orbitals.
-After running, the above input will generate four files: ``Psi_a_5.cube``,
-``Psi_a_6.cube``, ``Psi_b_5.cube``, and ``Psi_b_6.cube``.
+After running, the above input will generate four files: ``Psi_a_5_1-B1.cube``,
+``Psi_a_6_4-A1.cube``, ``Psi_a_5_1-B1.cube``, and ``Psi_a_6_4-A1.cube``. The subscript ``a`` in
+``Psi_a_5_1-B1.cube`` indicates an alpha orbital. The first number (``5``) is the index of the
+orbital while ``1-B1`` indicates that this is the first orbital that belongs to the B1 irrep.
+The file ``Psi_a_5_1-B1.cube`` begins with two comment lines::
+
+   Psi4 Gaussian Cube File.
+   Property: Psi_a_5_1-B1. Isocontour range for 85% of the density: (0.0787495,-0.0787495)
+
+The second line reports the isocontour values that capture 85% of the probability density using
+the least amount of grid points. This quantity is determined for orbitals and densities. The
+fraction of the density captured by the isocontour values is by default 0.85, but can
+be changed via the option |globals__cubeprop_isocontour_threshold|.
 
 .. note:: If your cube plots are too coarse, try to decrease the grid spacing via
     the option |globals__cubic_grid_spacing|.  If the edges of your plot are cut then
@@ -98,6 +109,13 @@ ORBITALS [Default if  |globals__cubeprop_tasks| is not specified]
     Produces cube representations of the molecular orbitals
     :math:`\psi_q(\mathbf{r})`.  Orbitals are sorted according to increasing
     orbital energy ignoring symmetry.
+FRONTIER_ORBITALS
+    Produces cube representations of the frontier molecular orbitals. For closed shell
+    species, the highest occupied (HOMO) and the lowest unoccupied (LUMO) alpha orbitals (ie. 
+    :math:`\psi_{\alpha}(\mathbf{r})`) are printed, while for open shell species a total 
+    of :math:`(4 + M_s)` orbitals are printed (:math:`\alpha` and :math:`\beta` 
+    spin for both lowest virtual (LVMO) and highest doubly occupied
+    orbitals (DOMO), along with all :math:`\alpha` singly occupied (SOMO) orbitals).
 DENSITY
     This task can be used to obtain the alpha and beta electron densities,
     :math:`\rho_\alpha(\mathbf{r})` and :math:`\rho_\beta(\mathbf{r})`, together
@@ -111,6 +129,14 @@ BASIS_FUNCTIONS
 ESP
     Calculates the total (nuclear + electronic) electrostatic potential
     :math:`V(\mathbf{r})`.
+DUAL_DESCRIPTOR
+    Calculates the dual descriptor from frontier orbitals:
+    :math:`f^2(\mathbf{r})=\rho_{\mathrm{LUMO}}(\mathbf{r})-\rho_{\mathrm{HOMO}}(\mathbf{r})`.
+    The dual descriptor is a good measure of nucleophilicity and electrophilicity,
+    containing information essentially equivalent to both Fukui functions combined. 
+    More details on the dual descriptor itself can be found in [Morell:2005:205]_, 
+    while the current implementation is described in [Martinez-Araya:2015:451]_. 
+    This feature is currently only supported for closed shell systems.
 
 .. note:: The ``ESP`` task requires the user to specify a density-fitting basis
     via the |scf__df_basis_scf| keyword.

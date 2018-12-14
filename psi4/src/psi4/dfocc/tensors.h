@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -318,6 +318,7 @@ class Tensor2d {
     void read(psi::PSIO *psio, size_t fileno);
     void read(psi::PSIO *psio, size_t fileno, psio_address start, psio_address *end);
     void read(std::shared_ptr<psi::PSIO> psio, size_t fileno);
+    void read(std::shared_ptr<psi::PSIO> psio, const std::string &label, size_t fileno);
     void read(std::shared_ptr<psi::PSIO> psio, size_t fileno, psio_address start, psio_address *end);
     void read(psi::PSIO &psio, size_t fileno);
     void read(psi::PSIO &psio, size_t fileno, psio_address start, psio_address *end);

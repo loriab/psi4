@@ -3,7 +3,7 @@
 #
 # Psi4: an open-source quantum chemistry software package
 #
-# Copyright (c) 2007-2017 The Psi4 Developers.
+# Copyright (c) 2007-2018 The Psi4 Developers.
 #
 # The copyrights for code used from other parties are included in
 # the corresponding files.
@@ -34,13 +34,13 @@ Organizationally, this module isolates qcdb code from psi4 code.
 """
 from __future__ import print_function
 from __future__ import absolute_import
-import shutil
 import os
-import subprocess
 import re
 import sys
 import uuid
+import shutil
 import inspect
+import subprocess
 
 from psi4.driver import qcdb
 from psi4.driver import p4util
@@ -143,8 +143,8 @@ def run_cfour(name, **kwargs):
     lenv = {
         'PATH': ':'.join([os.path.abspath(x) for x in os.environ.get('PSIPATH', '').split(':') if x != '']) + \
                 ':' + os.environ.get('PATH') + \
-                ':' + os.environ.get("PSIDATADIR") + '/basis',
-        'GENBAS_PATH': os.environ.get("PSIDATADIR") + '/basis',
+                ':' + core.get_datadir() + '/basis',
+        'GENBAS_PATH': core.get_datadir() + '/basis',
         'CFOUR_NUM_CORES': os.environ.get('CFOUR_NUM_CORES'),
         'MKL_NUM_THREADS':  os.environ.get('MKL_NUM_THREADS'),
         'OMP_NUM_THREADS':  os.environ.get('OMP_NUM_THREADS'),
@@ -265,7 +265,7 @@ def run_cfour(name, **kwargs):
         #   c4mol is dinky, w/o chg, mult, dummies and retains name
         #   blank_molecule_psi4_yo so as to not interfere with future cfour {} blocks
 
-    if c4grad:
+    if c4grad is not None:
         mat = core.Matrix.from_list(c4grad)
         core.set_gradient(mat)
 
@@ -364,13 +364,13 @@ def run_cfour(name, **kwargs):
     core.print_out('\n')
     p4util.banner(' Cfour %s %s Results ' % (name.lower(), calledby.capitalize()))
     core.print_variables()
-    if c4grad:
+    if c4grad is not None:
         core.get_gradient().print_out()
 
     core.print_out('\n')
     p4util.banner(' Cfour %s %s Results ' % (name.lower(), calledby.capitalize()))
     core.print_variables()
-    if c4grad:
+    if c4grad is not None:
         core.get_gradient().print_out()
 
     # Quit if Cfour threw error

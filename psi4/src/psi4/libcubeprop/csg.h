@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -30,21 +30,22 @@
 #define _psi_src_lib_libcubeprop_csg_h_
 
 #include <map>
-#include <set>
-
-#include "psi4/libmints/typedefs.h"
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace psi {
 
-class Options;
 class BasisExtents;
-class RKSFunctions;
+class BasisSet;
 class BlockOPoints;
+class Matrix;
+class Molecule;
+class Options;
+class RKSFunctions;
 
 class CubicScalarGrid {
-
-protected:
-
+   protected:
     // => Input Specification <= //
 
     /// Options object for overages and voxel spacing
@@ -95,7 +96,7 @@ protected:
     /// Setup grid from info in N_, D_, O_
     void populate_grid();
 
-public:
+   public:
     // => Constructors <= //
 
     CubicScalarGrid(std::shared_ptr<BasisSet> primary, Options& options);
@@ -150,9 +151,9 @@ public:
     // => Low-Level Write Routines (Use only if you know what you are doing) <= //
 
     /// Write a general file of the scalar field v (in fast ordering) to filepath/name.ext
-    void write_gen_file(double* v, const std::string& name, const std::string& type);
+    void write_gen_file(double* v, const std::string& name, const std::string& type, const std::string& comment = "");
     /// Write a Gaussian cube file of the scalar field v (in fast ordering) to filepath/name.cube
-    void write_cube_file(double* v, const std::string& name);
+    void write_cube_file(double* v, const std::string& name, const std::string& comment = "");
 
     // => Low-Level Scalar Field Computation (Use only if you know what you are doing) <= //
 
@@ -174,18 +175,32 @@ public:
     /// Compute a density-type property and drop a file corresponding to name and type
     void compute_density(std::shared_ptr<Matrix> D, const std::string& name, const std::string& type = "CUBE");
     /// Compute an ESP-type property and drop a file corresponding to name and type
-    void compute_esp(std::shared_ptr<Matrix> D, const std::vector<double>& nuc_weights, const std::string& name, const std::string& type = "CUBE");
+    void compute_esp(std::shared_ptr<Matrix> D, const std::vector<double>& nuc_weights, const std::string& name,
+                     const std::string& type = "CUBE");
     /// Compute a set of basis function-type properties and drop files corresponding to name, index, and type
-    void compute_basis_functions(const std::vector<int>& indices, const std::string& name, const std::string& type = "CUBE");
+    void compute_basis_functions(const std::vector<int>& indices, const std::string& name,
+                                 const std::string& type = "CUBE");
     /// Compute a set of orbital-type properties and drop files corresponding to name, index, symmetry label, and type
-    void compute_orbitals(std::shared_ptr<Matrix> C, const std::vector<int>& indices, const std::vector<std::string>& labels, const std::string& name, const std::string& type = "CUBE");
+    void compute_orbitals(std::shared_ptr<Matrix> C, const std::vector<int>& indices,
+                          const std::vector<std::string>& labels, const std::string& name,
+                          const std::string& type = "CUBE");
+    /// Compute a set of orbital-type properties and drop files corresponding to name, index, symmetry label, and type
+    void compute_difference(std::shared_ptr<Matrix> C, const std::vector<int>& indices,
+                          const std::string& label, bool square = false, const std::string& type = "CUBE");
+
     /// Compute a LOL-type property and drop a file corresponding to name and type
     void compute_LOL(std::shared_ptr<Matrix> D, const std::string& name, const std::string& type = "CUBE");
     /// Compute an ELF-type property and drop a file corresponding to name and type (TODO: this seems very unstable)
     void compute_ELF(std::shared_ptr<Matrix> D, const std::string& name, const std::string& type = "CUBE");
 
+    /// Compute the isocountour range that capture a given fraction of a property. Exponent is used
+    /// to properly compute the density. E.g. for orbitals exponent = 2, for densities exponent = 1
+    std::pair<double, double> compute_isocontour_range(double* v2, double exponent);
+
+    /// A helper function to construct ECP comment in the cubefile header.
+    std::string ecp_header();
 };
 
-} // End namespace
+}  // namespace psi
 
 #endif

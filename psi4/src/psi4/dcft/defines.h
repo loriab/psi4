@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2017 The Psi4 Developers.
+ * Copyright (c) 2007-2018 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -27,7 +27,7 @@
  */
 
 #ifndef _DEFINES_H
-#define	_DEFINES_H
+#define _DEFINES_H
 
 #define GIT_ID "d12f233900069eb274854278e3aa1c733c34c9e6"
 
@@ -39,7 +39,7 @@
 #define ID(x) _ints->DPD_ID(x)
 
 #ifndef INDEX
-#define INDEX(i,j) (((i)>(j)) ? (((i)*((i)+1)/2)+(j)) : (((j)*((j)+1)/2)+(i)))
+#define INDEX(i, j) (((i) > (j)) ? (((i) * ((i) + 1) / 2) + (j)) : (((j) * ((j) + 1) / 2) + (i)))
 #endif
 
-#endif	/* _DEFINES_H */
+#endif /* _DEFINES_H */
