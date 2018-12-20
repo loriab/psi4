@@ -85,8 +85,7 @@ def _pybuild_basis(mol,
             lmbs = core.BasisSet.construct_from_pydict(atommol, atbs, puream)
             atom_basis_list.append(lmbs)
         return atom_basis_list
-    if ((sys.version_info < (3, 0) and isinstance(resolved_target, basestring))
-            or (sys.version_info >= (3, 0) and isinstance(resolved_target, str))):
+    if isinstance(resolved_target, str):
         basisdict['name'] = basisdict['name'].split('/')[-1].replace('.gbs', '')
     if callable(resolved_target):
         basisdict['name'] = resolved_target.__name__.replace('basisspec_psi4_yo__', '').upper()
@@ -111,9 +110,7 @@ core.BasisSet.build = _pybuild_basis
 def _core_wavefunction_build(mol, basis=None):
     if basis is None:
         basis = core.BasisSet.build(mol)
-    elif (sys.version_info[0] == 2) and isinstance(basis, (str, unicode)):
-        basis = core.BasisSet.build(mol, "ORBITAL", basis)
-    elif (sys.version_info[0] > 2) and isinstance(basis, str):
+    elif isinstance(basis, str):
         basis = core.BasisSet.build(mol, "ORBITAL", basis)
 
     wfn = core.Wavefunction(mol, basis)
@@ -523,8 +520,8 @@ def _core_set_global_option_python(key, EXTERN):
 
 core.set_global_option_python = _core_set_global_option_python
 
-
 ## QCvar helps
+
 
 def _core_has_variable(key):
     return core.has_scalar_variable(key) or core.has_array_variable(key)
@@ -625,7 +622,6 @@ core.Wavefunction.set_variable = _core_wavefunction_set_variable
 core.Wavefunction.del_variable = _core_wavefunction_del_variable
 core.Wavefunction.variables = _core_wavefunction_variables
 
-
 ## Psi4 v1.4 Export Deprecations
 
 
@@ -698,13 +694,14 @@ def _core_wavefunction_arrays(cls):
         stacklevel=2)
     return cls.array_variables()
 
+
 core.Wavefunction.get_variable = _core_wavefunction_get_variable
 core.Wavefunction.get_array = _core_wavefunction_get_array
 core.Wavefunction.set_array = _core_wavefunction_set_array
 core.Wavefunction.arrays = _core_wavefunction_arrays
 
-
 ## Psi4 v1.3 Export Deprecations
+
 
 def _core_get_gradient():
     warnings.warn(
@@ -720,6 +717,7 @@ def _core_set_gradient(val):
         category=FutureWarning,
         stacklevel=2)
     return core.set_legacy_gradient(val)
+
 
 core.get_gradient = _core_get_gradient
 core.set_gradient = _core_set_gradient

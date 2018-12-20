@@ -48,7 +48,6 @@ def kwargs_lower(kwargs):
 
     """
     caseless_kwargs = {}
-    # items() inefficient on Py2 but this is small dict
     for key, value in kwargs.items():
         lkey = key.lower()
         if lkey in ['subset', 'banner']:  # only kw for which case matters
@@ -316,15 +315,42 @@ def extract_sowreap_from_output(sowout, quantity, sownum, linkage, allvital=Fals
 
 
 _modules = [
-        # PSI4 Modules
-        "ADC", "CCENERGY", "CCEOM", "CCDENSITY", "CCLAMBDA", "CCHBAR",
-        "CCRESPONSE", "CCSORT", "CCTRIPLES", "CLAG", "CPHF", "CIS",
-        "DCFT", "DETCI", "DFMP2", "DFTSAPT", "FINDIF", "FNOCC", "LMP2",
-        "MCSCF", "MINTS", "MRCC", "OCC", "OPTKING", "PSIMRCC", "RESPONSE",
-        "SAPT", "SCF", "STABILITY", "THERMO", "TRANSQT", "TRANSQT2",
-        # External Modules
-        "CFOUR",
-        ]
+    # PSI4 Modules
+    "ADC",
+    "CCENERGY",
+    "CCEOM",
+    "CCDENSITY",
+    "CCLAMBDA",
+    "CCHBAR",
+    "CCRESPONSE",
+    "CCSORT",
+    "CCTRIPLES",
+    "CLAG",
+    "CPHF",
+    "CIS",
+    "DCFT",
+    "DETCI",
+    "DFMP2",
+    "DFTSAPT",
+    "FINDIF",
+    "FNOCC",
+    "LMP2",
+    "MCSCF",
+    "MINTS",
+    "MRCC",
+    "OCC",
+    "OPTKING",
+    "PSIMRCC",
+    "RESPONSE",
+    "SAPT",
+    "SCF",
+    "STABILITY",
+    "THERMO",
+    "TRANSQT",
+    "TRANSQT2",
+    # External Modules
+    "CFOUR",
+]
 
 
 def reset_pe_options(pofm):

@@ -378,11 +378,7 @@ def _np_read(self, filename, prefix=""):
 
     if isinstance(filename, np.lib.npyio.NpzFile):
         data = filename
-    elif (sys.version_info[0] == 2) and isinstance(filename, (str, unicode)):
-        if not filename.endswith('.npz'):
-            filename = filename + '.npz'
-        data = np.load(filename)
-    elif (sys.version_info[0] > 2) and isinstance(filename, str):
+    elif isinstance(filename, str):
         if not filename.endswith('.npz'):
             filename = filename + '.npz'
 
