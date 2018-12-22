@@ -2070,7 +2070,7 @@ def run_scf(name, **kwargs):
             dfmp2_wfn = core.dfmp2(scf_wfn)
             dfmp2_wfn.compute_energy()
 
-            vdh = dfmp2_wfn.get_variable('CUSTOM SCS-MP2 CORRELATION ENERGY')
+            vdh = dfmp2_wfn.variable('CUSTOM SCS-MP2 CORRELATION ENERGY')
 
         else:
             dfmp2_wfn = core.dfmp2(scf_wfn)
