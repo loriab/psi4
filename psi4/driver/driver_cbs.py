@@ -31,6 +31,7 @@ import sys
 import copy
 import math
 import pprint
+pp = pprint.PrettyPrinter(width=120, compact=True, indent=1)
 from typing import Dict, List, Any, Union
 
 import numpy as np
@@ -1470,8 +1471,7 @@ class CBSComputer(BaseTask):
             'molecule': self.molecule,
         }
         print('METAMETA')
-        import pprint
-        pprint.pprint(self.metameta)
+        pp.pprint(self.metameta)
 
         if data['metadata']:
             print('DATAMETADATA', data['metadata'])
@@ -1530,10 +1530,10 @@ class CBSComputer(BaseTask):
         results_list = [x.get_results() for x in self.task_list]
         #for x in self.task_list:
         #    print('\nTASK')
-        #    pprint.pprint(x)
+        #    pp.pprint(x)
         #for x in self.results_list:
         #    print('\nRESULT')
-        #    pprint.pprint(x)
+        #    pp.pprint(x)
 
         # load results_list numbers into compute_list (task_list is SingleResult-s)
         for itask, mc in enumerate(self.compute_list):
@@ -1632,7 +1632,7 @@ class CBSComputer(BaseTask):
 
         cbsrec = unnp(cbsrec, flat=True)
         print('\nCBS QCSchema:')
-        pprint.pprint(cbsrec)
+        pp.pprint(cbsrec)
         return cbsrec
 
     def get_psi_results(self, return_wfn=False):
