@@ -43,7 +43,6 @@ import numpy as np
 from psi4.driver import driver_util
 from psi4.driver import driver_cbs
 from psi4.driver import driver_nbody
-from psi4.driver import driver_nbody_helper
 from psi4.driver import driver_findif
 from psi4.driver import task_base
 from psi4.driver import task_planner
@@ -528,7 +527,7 @@ def energy(name, **kwargs):
             shutil.copy(item, targetfile)
 
     if kwargs.get('embedding_charges', None):
-        driver_nbody_helper.electrostatic_embedding(kwargs['embedding_charges'])
+        driver_nbody.electrostatic_embedding(kwargs['embedding_charges'])
 
     wfn = procedures['energy'][lowername](lowername, molecule=molecule, **kwargs)
 
@@ -705,7 +704,7 @@ def gradient(name, **kwargs):
 
     # Add embedding charges for nbody
     if kwargs.get('embedding_charges', None):
-        driver_nbody_helper.electrostatic_embedding(kwargs['embedding_charges'])
+        driver_nbody.electrostatic_embedding(kwargs['embedding_charges'])
 
     # Does dertype indicate an analytic procedure both exists and is wanted?
 #    if dertype == 1:
@@ -1549,7 +1548,7 @@ def hessian(name, **kwargs):
 
     # Add embedding charges for nbody
     if kwargs.get('embedding_charges', None):
-        driver_nbody_helper.electrostatic_embedding(kwargs['embedding_charges'])
+        driver_nbody.electrostatic_embedding(kwargs['embedding_charges'])
 
     # Set method-dependent scf convergence criteria (test on procedures['energy'] since that's guaranteed)
     optstash_conv = driver_util._set_convergence_criterion('energy', lowername, 8, 10, 8, 10, 8)
