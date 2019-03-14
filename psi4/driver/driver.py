@@ -448,20 +448,24 @@ def energy(name, **kwargs):
     basisstash = p4util.OptionsState(['BASIS'])
     core_clean = False
     return_wfn = kwargs.pop('return_wfn', False)
-    lowername = name.lower()
 
     # Make sure the molecule the user provided is the active one
     molecule = kwargs.pop('molecule', core.get_active_molecule())
     molecule.update_geometry()
 
-    # Allow specification of methods to arbitrary order
+    ## Pre-planning interventions
+
+    # * Trip on function or alias as name
+    lowername = driver_util.upgrade_interventions(name)
+
+    # * Allow specification of methods to arbitrary order
     lowername, level = driver_util.parse_arbitrary_order(lowername)
     if level:
         kwargs['level'] = level
 
     _filter_renamed_methods("energy", lowername)
 
-    # Avert pydantic anger at incomplete modelchem spec
+    # * Avert pydantic anger at incomplete modelchem spec
     userbas = core.get_global_option('BASIS') or kwargs.get('basis')
     if lowername in integrated_basis_methods and userbas is None:
         kwargs['basis'] = '(auto)'
@@ -581,7 +585,6 @@ def gradient(name, **kwargs):
     basisstash = p4util.OptionsState(['BASIS'])
     core_clean = False
     return_wfn = kwargs.pop('return_wfn', False)
-    lowername = name.lower()
 
     # Make sure the molecule the user provided is the active one
     molecule = kwargs.pop('molecule', core.get_active_molecule())
@@ -592,16 +595,21 @@ def gradient(name, **kwargs):
     kwargs['findif_stencil_size'] = core.get_option("FINDIF", "POINTS")
     kwargs['findif_step_size'] = core.get_option("FINDIF", "DISP_SIZE")
 
-    # Allow specification of methods to arbitrary order
+    ## Pre-planning interventions
+
+    # * Trip on function or alias as name
+    lowername = driver_util.upgrade_interventions(name)
+
+    # * Allow specification of methods to arbitrary order
     lowername, level = driver_util.parse_arbitrary_order(lowername)
     if level:
         kwargs['level'] = level
 
-    # Prevent methods that do not have associated derivatives
+    # * Prevent methods that do not have associated derivatives
     if lowername in energy_only_methods:
         raise ValidationError(f"`gradient('{name}')` does not have an associated gradient.")
 
-    # Avert pydantic anger at incomplete modelchem spec
+    # * Avert pydantic anger at incomplete modelchem spec
     userbas = core.get_global_option('BASIS') or kwargs.get('basis')
     if lowername in integrated_basis_methods and userbas is None:
         kwargs['basis'] = '(auto)'
@@ -857,8 +865,12 @@ def properties(*args, **kwargs):
     molecule.update_geometry()
     kwargs['molecule'] = molecule
 
-    # Allow specification of methods to arbitrary order
-    lowername = args[0].lower()
+    ## Pre-planning interventions
+
+    # * Trip on function or alias as name
+    lowername = driver_util.upgrade_interventions(args[0])
+
+    # * Allow specification of methods to arbitrary order
     lowername, level = driver_util.parse_arbitrary_order(lowername)
     if level:
         kwargs['level'] = level
@@ -1446,7 +1458,6 @@ def hessian(name, **kwargs):
     basisstash = p4util.OptionsState(['BASIS'])
     core_clean = False
     return_wfn = kwargs.pop('return_wfn', False)
-    lowername = name.lower()
 
     # Make sure the molecule the user provided is the active one
     molecule = kwargs.pop('molecule', core.get_active_molecule())
@@ -1471,16 +1482,21 @@ def hessian(name, **kwargs):
     #            """hessian() switching to finite difference by gradients for partial Hessian calculation.\n""")
     #        dertype = 1
 
-    # Allow specification of methods to arbitrary order
+    ## Pre-planning interventions
+
+    # * Trip on function or alias as name
+    lowername = driver_util.upgrade_interventions(name)
+
+    # * Allow specification of methods to arbitrary order
     lowername, level = driver_util.parse_arbitrary_order(lowername)
     if level:
         kwargs['level'] = level
 
-    # Prevent methods that do not have associated derivatives
+    # * Prevent methods that do not have associated derivatives
     if lowername in energy_only_methods:
         raise ValidationError(f"`hessian('{name}')` does not have an associated Hessian.")
 
-    # Avert pydantic anger at incomplete modelchem spec
+    # * Avert pydantic anger at incomplete modelchem spec
     userbas = core.get_global_option('BASIS') or kwargs.get('basis')
     if lowername in integrated_basis_methods and userbas is None:
         kwargs['basis'] = '(auto)'
