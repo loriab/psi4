@@ -29,7 +29,7 @@
 import math
 import itertools
 import pydantic
-
+from ast import literal_eval
 from typing import Dict, List, Any, Union
 
 import numpy as np
@@ -482,7 +482,7 @@ def assemble_nbody_components(metadata, component_results):
     results = {}
     results['nbody'] = nbody_dict
     for b in ['cp', 'nocp', 'vmfc']:
-        results['%s_energy_body_dict' % b] = eval('%s_energy_body_dict' % b)
+        results['%s_energy_body_dict' % b] = locals()['%s_energy_body_dict' % b]
         results['%s_energy_body_dict' % b] = {str(i) + b: j for i, j in results['%s_energy_body_dict' % b].items()}
 
     # Figure out and build return types
@@ -618,7 +618,7 @@ class NBodyComputer(BaseTask):
                     for frag in embedding_frags:
                         positions = self.molecule.extract_subsets(frag).geometry().np.tolist()
                         charges.extend([[chg, i] for i, chg in zip(positions, self.embedding_charges[frag])])
-                    data['keywords'].update({'embedding_charges': charges})
+                    data['keywords']['function_kwargs'].update({'embedding_charges': charges})
 
                 self.task_list[str(level) + '_' + str(pair)] = obj(**data)
                 counter += 1
@@ -651,7 +651,7 @@ class NBodyComputer(BaseTask):
             return driver_nbody_multilevel.prepare_results(self)
 
         metadata = self.dict().copy()
-        results_list = {eval(k.split('_')[1]): v.get_results() for k, v in (results.items() or self.task_list.items())}
+        results_list = {literal_eval(k.split('_')[1]): v.get_results() for k, v in (results.items() or self.task_list.items())}
         energies = {k: v['properties']["return_energy"] for k, v in results_list.items()}
 
         ptype = None
@@ -698,6 +698,7 @@ class NBodyComputer(BaseTask):
         # load QCVariables
         qcvars = {
             'NUCLEAR REPULSION ENERGY': self.molecule.nuclear_repulsion_energy(),
+            'NBODY NUMBER': len(self.task_list),
         }
 
         for k, val in results.items():
@@ -747,6 +748,14 @@ class NBodyComputer(BaseTask):
             ret = plump_qcvar(ret, 'hessian', 'psi4')
 
         wfn = core.Wavefunction.build(self.molecule, 'def2-svp')
+
+        # this should be all the setting that's needed (and shouldn't need the isinstance
+        #   to avoid dicts). can this be simplified, Asim?
+        for qcv, val in nbody_results['extras']['qcvars'].items():
+            if isinstance(val, (int, float)):
+                for obj in [core, wfn]:
+                    obj.set_variable(qcv, plump_qcvar(val, qcv))
+
         dicts = [
             'energies', 'ptype', 'intermediates', 'intermediates2', 'intermediates_ptype', 'energy_body_dict',
             'gradient_body_dict', 'nbody', 'cp_energy_body_dict', 'nocp_energy_body_dict', 'vmfc_energy_body_dict'
