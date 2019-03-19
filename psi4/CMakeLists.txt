@@ -300,14 +300,15 @@ install(FILES ../tests/pytests/__init__.py
               ../tests/pytests/test_mp2d.py
               ../tests/pytests/test_testing.py
               ../tests/pytests/test_mints.py
-              ../tests/pytests/test_standard_suite.py
-              ../tests/pytests/standard_suite_runner.py
               ../tests/pytests/test_detci_opdm.py
               ../tests/pytests/test_gradients.py
               ../tests/pytests/test_mdi.py
               ../tests/pytests/test_weird_basis.py
               ../tests/pytests/test_ccresponse.py
               ../tests/pytests/test_fchk_writer.py
+              ../tests/pytests/test_qcng_nbody_multi_level.py
+              ../tests/pytests/test_standard_suite.py
+              ../tests/pytests/standard_suite_runner.py
         DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}${PYMOD_INSTALL_LIBDIR}/psi4/tests/)
 
     # <<<  install psi4 share/ & include/  >>>
