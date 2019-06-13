@@ -91,7 +91,27 @@ def fisapt_compute_energy(self):
         self.find()
         core.timer_off("FISAPT:FSAPT:ind")
         core.timer_on("FISAPT:FSAPT:disp")
-        self.fdisp()
+        if core.get_option("FISAPT", "FISAPT_DO_FSAPT_DISP"):
+            core.timer_on("FISAPT:FSAPT:disp")
+            self.fdisp()
+            core.timer_off("FISAPT:FSAPT:disp")
+            self.fdrop()
+        else:
+            # Build Empirical Dispersion
+            disp_model = core.get_option("FISAPT", "FISAPT_EMPRICAL_DISP_MODEL")
+            dashD = empirical_dispersion.EmpiricalDispersion(name_hint=disp_model)
+            dashD.print_out()
+            # Compute -D
+            Edisp = dashD.compute_energy(core.get_active_molecule())
+            core.set_variable('FISAPT-{} DISPERSION CORRECTION ENERGY'.format(dashD.fctldash), Edisp)            # Printing
+            text = []
+            text.append("   => FISAPT-D3M(BJ): Empirical Dispersion <=")
+            text.append(" ")
+            text.append(dashD.description)
+            text.append(dashD.dashlevel_citation.rstrip())
+            text.append("    Empirical Dispersion Energy =     {:24.16f}\n".format(Edisp))
+            text.append('\n')
+            core.print_out('\n'.join(text))
         core.timer_off("FISAPT:FSAPT:disp")
         self.fdrop()
 
