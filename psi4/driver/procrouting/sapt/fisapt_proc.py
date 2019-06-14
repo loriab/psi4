@@ -31,6 +31,7 @@ import os
 import numpy as np
 
 from psi4 import core
+from .. import empirical_dispersion
 
 
 def fisapt_compute_energy(self):
@@ -102,17 +103,16 @@ def fisapt_compute_energy(self):
             dashD.print_out()
             # Compute -D
             Edisp = dashD.compute_energy(core.get_active_molecule())
-            core.set_variable('FISAPT-{} DISPERSION CORRECTION ENERGY'.format(dashD.fctldash), Edisp)            # Printing
+            core.set_variable('{} DISPERSION CORRECTION ENERGY'.format(dashD.fctldash), Edisp)            # Printing
             text = []
-            text.append("   => FISAPT-D3M(BJ): Empirical Dispersion <=")
+            text.append("   => {}: Empirical Dispersion <=".format(dashD.fctldash.upper()))
             text.append(" ")
             text.append(dashD.description)
             text.append(dashD.dashlevel_citation.rstrip())
-            text.append("    Empirical Dispersion Energy =     {:24.16f}\n".format(Edisp))
+            text.append("\n    Empirical Dispersion Energy [Eh] =     {:24.16f}\n".format(Edisp))
             text.append('\n')
             core.print_out('\n'.join(text))
         core.timer_off("FISAPT:FSAPT:disp")
-        self.fdrop()
 
     # => Scalar-Field Analysis <=
 
