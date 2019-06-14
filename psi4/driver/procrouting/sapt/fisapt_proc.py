@@ -95,7 +95,6 @@ def fisapt_compute_energy(self):
             core.timer_on("FISAPT:FSAPT:disp")
             self.fdisp()
             core.timer_off("FISAPT:FSAPT:disp")
-            self.fdrop()
         #else:
         #    # Build Empirical Dispersion
         #    dashD = empirical_dispersion.EmpiricalDispersion(name_hint='SAPT0-D3M')
@@ -111,6 +110,7 @@ def fisapt_compute_energy(self):
         #    text.append("\n    Empirical Dispersion Energy [Eh] =     {:24.16f}\n".format(Edisp))
         #    text.append('\n')
         #    core.print_out('\n'.join(text))
+        self.fdrop()
 
     # => Scalar-Field Analysis <=
 
