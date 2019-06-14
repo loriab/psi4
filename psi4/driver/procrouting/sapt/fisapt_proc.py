@@ -98,8 +98,7 @@ def fisapt_compute_energy(self):
             self.fdrop()
         else:
             # Build Empirical Dispersion
-            disp_model = core.get_option("FISAPT", "FISAPT_EMPRICAL_DISP_MODEL")
-            dashD = empirical_dispersion.EmpiricalDispersion(name_hint=disp_model)
+            dashD = empirical_dispersion.EmpiricalDispersion(name_hint='SAPT0-D3M')
             dashD.print_out()
             # Compute -D
             Edisp = dashD.compute_energy(core.get_active_molecule())
