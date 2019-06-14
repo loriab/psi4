@@ -112,7 +112,7 @@ def fisapt_compute_energy(self):
         #    text.append("\n    Empirical Dispersion Energy [Eh] =     {:24.16f}\n".format(Edisp))
         #    text.append('\n')
         #    core.print_out('\n'.join(text))
-        core.timer_off("FISAPT:FSAPT:disp")
+        #core.timer_off("FISAPT:FSAPT:disp")
 
     # => Scalar-Field Analysis <=
 
@@ -150,7 +150,6 @@ def fisapt_fdrop(self):
     matrices["Exch_AB"].name = "Exch"
     matrices["IndAB_AB"].name = "IndAB"
     matrices["IndBA_AB"].name = "IndBA"
-    matrices["Disp_AB"].name = "Disp"
 
     _drop(vectors["ZA"], filepath)
     _drop(vectors["ZB"], filepath)
@@ -160,7 +159,10 @@ def fisapt_fdrop(self):
     _drop(matrices["Exch_AB"], filepath)
     _drop(matrices["IndAB_AB"], filepath)
     _drop(matrices["IndBA_AB"], filepath)
-    _drop(matrices["Disp_AB"], filepath)
+
+    if core.get_option("FISAPT", "FISAPT_DO_FSAPT_DISP"):
+        matrices["Disp_AB"].name = "Disp"
+        _drop(matrices["Disp_AB"], filepath)
 
     if core.get_option("FISAPT", "SSAPT0_SCALE"):
         ssapt_filepath = core.get_option("FISAPT", "FISAPT_FSSAPT_FILEPATH")
@@ -174,7 +176,6 @@ def fisapt_fdrop(self):
 
         matrices["sIndAB_AB"].name = "IndAB"
         matrices["sIndBA_AB"].name = "IndBA"
-        matrices["sDisp_AB"].name = "Disp"
 
         _drop(vectors["ZA"], ssapt_filepath)
         _drop(vectors["ZB"], ssapt_filepath)
@@ -184,7 +185,10 @@ def fisapt_fdrop(self):
         _drop(matrices["Exch_AB"], ssapt_filepath)
         _drop(matrices["sIndAB_AB"], ssapt_filepath)
         _drop(matrices["sIndBA_AB"], ssapt_filepath)
-        _drop(matrices["sDisp_AB"], ssapt_filepath)
+
+        if core.get_option("FISAPT", "FISAPT_DO_FSAPT_DISP"):
+            matrices["sDisp_AB"].name = "Disp"
+            _drop(matrices["sDisp_AB"], ssapt_filepath)
 
 
 def fisapt_plot(self):
