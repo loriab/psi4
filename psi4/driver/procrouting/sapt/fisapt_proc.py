@@ -97,21 +97,21 @@ def fisapt_compute_energy(self):
             self.fdisp()
             core.timer_off("FISAPT:FSAPT:disp")
             self.fdrop()
-        else:
-            # Build Empirical Dispersion
-            dashD = empirical_dispersion.EmpiricalDispersion(name_hint='SAPT0-D3M')
-            dashD.print_out()
-            # Compute -D
-            Edisp = dashD.compute_energy(core.get_active_molecule())
-            core.set_variable('{} DISPERSION CORRECTION ENERGY'.format(dashD.fctldash), Edisp)            # Printing
-            text = []
-            text.append("   => {}: Empirical Dispersion <=".format(dashD.fctldash.upper()))
-            text.append(" ")
-            text.append(dashD.description)
-            text.append(dashD.dashlevel_citation.rstrip())
-            text.append("\n    Empirical Dispersion Energy [Eh] =     {:24.16f}\n".format(Edisp))
-            text.append('\n')
-            core.print_out('\n'.join(text))
+        #else:
+        #    # Build Empirical Dispersion
+        #    dashD = empirical_dispersion.EmpiricalDispersion(name_hint='SAPT0-D3M')
+        #    dashD.print_out()
+        #    # Compute -D
+        #    Edisp = dashD.compute_energy(core.get_active_molecule())
+        #    core.set_variable('{} DISPERSION CORRECTION ENERGY'.format(dashD.fctldash), Edisp)            # Printing
+        #    text = []
+        #    text.append("   => {}: Empirical Dispersion <=".format(dashD.fctldash.upper()))
+        #    text.append(" ")
+        #    text.append(dashD.description)
+        #    text.append(dashD.dashlevel_citation.rstrip())
+        #    text.append("\n    Empirical Dispersion Energy [Eh] =     {:24.16f}\n".format(Edisp))
+        #    text.append('\n')
+        #    core.print_out('\n'.join(text))
         core.timer_off("FISAPT:FSAPT:disp")
 
     # => Scalar-Field Analysis <=
