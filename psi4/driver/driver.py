@@ -38,6 +38,8 @@ import copy
 import json
 import shutil
 
+import pprint
+pp = pprint.PrettyPrinter(width=120, compact=True, indent=1)
 import numpy as np
 
 from psi4.driver import driver_util
@@ -1256,7 +1258,7 @@ def hessian(name, **kwargs):
     else:
         irrep = driver_util.parse_cotton_irreps(irrep, molecule.schoenflies_symbol())
         irrep -= 1  # A1 irrep is externally 1, internally 0
-    kwargs['irrep'] = irrep
+    kwargs['findif_irrep'] = irrep
 
     #    if dertype == 2:
     #        core.print_out(
@@ -1284,7 +1286,7 @@ def hessian(name, **kwargs):
 
     # Are we planning?
     plan = task_planner.task_planner("hessian", lowername, molecule, **kwargs)
-    print('HESSIAN  PLAN', plan)
+    print('HESSIAN  PLAN', plan.dict())
 
     if kwargs.get("return_plan", False):
         return plan
@@ -1332,7 +1334,6 @@ def hessian(name, **kwargs):
 
     _filter_renamed_methods("frequency", lowername)
     
-    return_wfn = kwargs.pop('return_wfn', False)
     core.clean_variables()
 #    dertype = 2
 

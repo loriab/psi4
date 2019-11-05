@@ -38,6 +38,8 @@ import sys
 import traceback
 import uuid
 import warnings
+import pprint
+pp = pprint.PrettyPrinter(width=120, compact=True, indent=1)
 
 import numpy as np
 import qcelemental as qcel
