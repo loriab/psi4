@@ -46,12 +46,12 @@ from psi4.driver import driver_util
 from psi4.driver import driver_cbs
 from psi4.driver import driver_nbody
 from psi4.driver import driver_findif
-from psi4.driver import task_base
 from psi4.driver import task_planner
 from psi4.driver import p4util
 from psi4.driver import qcdb
 from psi4.driver.procrouting import *
 from psi4.driver.p4util.exceptions import *
+from psi4.driver.task_base import SingleComputer
 
 
 def _energy_is_invariant(gradient, stationary_criterion=1.e-2):
@@ -473,13 +473,13 @@ def energy(name, **kwargs):
     if kwargs.get("return_plan", False):
         return plan
 
-    elif isinstance(plan, task_base.SingleResult):
+    elif isinstance(plan, SingleComputer):
         # We have unpacked to a Single Result
         lowername = plan.method
         basis = plan.basis
         core.set_global_option("BASIS", basis)
         core_clean = True
-        print('ENERGY SingleResult', plan.method, plan.basis, plan.driver, plan.keywords) #plan.molecule)
+        print('ENERGY SingleComputer', plan.method, plan.basis, plan.driver, plan.keywords) #plan.molecule)
         #print(plan.dict())
 
     else:
@@ -492,7 +492,7 @@ def energy(name, **kwargs):
     #for precallback in hooks['energy']['pre']:
     #    precallback(lowername, **kwargs)
 
-    # needed (+restore below) so long as SingleResults aren't run through json (where convcrit also lives)
+    # needed (+restore below) so long as SingleComputer-s aren't run through json (where convcrit also lives)
     optstash = driver_util.negotiate_convergence_criterion((0, 0), lowername, return_optstash=True)
 
     # Before invoking the procedure, we rename any file that should be read.
@@ -619,7 +619,7 @@ def gradient(name, **kwargs):
     if kwargs.get("return_plan", False):
         return plan
 
-    elif isinstance(plan, task_base.SingleResult):
+    elif isinstance(plan, SingleComputer):
         # We have unpacked to a Single Result
         lowername = plan.method
         basis = plan.basis
@@ -1291,7 +1291,7 @@ def hessian(name, **kwargs):
     if kwargs.get("return_plan", False):
         return plan
 
-    elif isinstance(plan, task_base.SingleResult):
+    elif isinstance(plan, SingleComputer):
         # We have unpacked to a Single Result
         lowername = plan.method
         basis = plan.basis
