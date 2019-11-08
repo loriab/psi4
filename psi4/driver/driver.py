@@ -597,6 +597,7 @@ def gradient(name, **kwargs):
 
     # * Trip on function or alias as name
     lowername = driver_util.upgrade_interventions(name)
+    _filter_renamed_methods("gradient", lowername)
 
     # * Allow specification of methods to arbitrary order
     lowername, level = driver_util.parse_arbitrary_order(lowername)
@@ -858,6 +859,7 @@ def properties(*args, **kwargs):
 
     # * Trip on function or alias as name
     lowername = driver_util.upgrade_interventions(args[0])
+    _filter_renamed_methods("properties", lowername)
 
     # * Allow specification of methods to arbitrary order
     lowername, level = driver_util.parse_arbitrary_order(lowername)
@@ -1269,6 +1271,7 @@ def hessian(name, **kwargs):
 
     # * Trip on function or alias as name
     lowername = driver_util.upgrade_interventions(name)
+    _filter_renamed_methods("hessian", lowername)
 
     # * Allow specification of methods to arbitrary order
     lowername, level = driver_util.parse_arbitrary_order(lowername)
