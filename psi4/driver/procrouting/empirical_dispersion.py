@@ -190,7 +190,7 @@ class EmpiricalDispersion(object):
 
         """
         if self.engine in ['dftd3', 'mp2d']:
-            resi = AtomicInput(
+            inp = AtomicInput(
                 **{
                     'driver': 'energy',
                     'model': {
@@ -206,7 +206,7 @@ class EmpiricalDispersion(object):
                     'molecule': molecule.to_schema(dtype=2),
                     'provenance': p4util.provenance_stamp(__name__),
                 })
-            jobrec = qcng.compute(resi, self.engine, raise_error=True,
+            jobrec = qcng.compute(inp, self.engine, raise_error=True,
                                   local_options={"scratch_directory": core.IOManager.shared_object().get_default_path()})
 
             dashd_part = float(jobrec.extras['qcvars']['DISPERSION CORRECTION ENERGY'])
@@ -246,7 +246,7 @@ class EmpiricalDispersion(object):
 
         """
         if self.engine in ['dftd3', 'mp2d']:
-            resi = AtomicInput(
+            inp = AtomicInput(
                 **{
                     'driver': 'gradient',
                     'model': {
@@ -262,7 +262,7 @@ class EmpiricalDispersion(object):
                     'molecule': molecule.to_schema(dtype=2),
                     'provenance': p4util.provenance_stamp(__name__),
                 })
-            jobrec = qcng.compute(resi, self.engine, raise_error=True,
+            jobrec = qcng.compute(inp, self.engine, raise_error=True,
                                   local_options={"scratch_directory": core.IOManager.shared_object().get_default_path()})
 
             dashd_part = core.Matrix.from_array(
