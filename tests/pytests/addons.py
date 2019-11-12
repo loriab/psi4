@@ -16,7 +16,6 @@ __all__ = [
     'using_qcdb',
 ]
 
-
 def is_psi4_new_enough(version_feature_introduced):
     if not which_import('psi4', return_bool=True):
         return False
