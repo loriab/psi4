@@ -769,6 +769,7 @@ def gradient(name, **kwargs):
 #        core.set_variable('CURRENT ENERGY', findif_meta_dict["reference"]["energy"])
 #        wfn.set_variable('CURRENT ENERGY', findif_meta_dict["reference"]["energy"])
 
+    basisstash.restore()
     optstash.restore()
 
     if core.get_option('FINDIF', 'GRADIENT_WRITE'):
@@ -1598,6 +1599,7 @@ def hessian(name, **kwargs):
     # We have the desired method. Do it.
     wfn = procedures['hessian'][lowername](lowername, molecule=molecule, **kwargs)
     wfn.set_gradient(G0)
+    basisstash.restore()
     optstash.restore()
     optstash_conv.restore()
 
