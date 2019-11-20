@@ -440,7 +440,6 @@ def energy(name, **kwargs):
     core.print_out("\nScratch directory: %s\n" % core.IOManager.shared_object().get_default_path())
 
     basisstash = p4util.OptionsState(['BASIS'])
-    core_clean = False
     return_wfn = kwargs.pop('return_wfn', False)
 
     # Make sure the molecule the user provided is the active one
@@ -477,7 +476,6 @@ def energy(name, **kwargs):
         lowername = plan.method
         basis = plan.basis
         core.set_global_option("BASIS", basis)
-        core_clean = True
 
     else:
         plan.compute()
@@ -535,8 +533,6 @@ def energy(name, **kwargs):
 
     basisstash.restore()
     optstash.restore()
-    # if core_clean:
-        # core.clean()
 
     if return_wfn:  # TODO current energy safer than wfn.energy() for now, but should be revisited
 
@@ -578,7 +574,6 @@ def gradient(name, **kwargs):
     core.print_out("\nScratch directory: %s\n" % core.IOManager.shared_object().get_default_path())
 
     basisstash = p4util.OptionsState(['BASIS'])
-    core_clean = False
     return_wfn = kwargs.pop('return_wfn', False)
 
     # Make sure the molecule the user provided is the active one
@@ -623,7 +618,6 @@ def gradient(name, **kwargs):
         lowername = plan.method
         basis = plan.basis
         core.set_global_option("BASIS", basis)
-        core_clean = True
     else:
         plan.compute()
         return plan.get_psi_results(return_wfn=return_wfn)
@@ -1239,7 +1233,6 @@ def hessian(name, **kwargs):
 
     kwargs = p4util.kwargs_lower(kwargs)
     basisstash = p4util.OptionsState(['BASIS'])
-    core_clean = False
     return_wfn = kwargs.pop('return_wfn', False)
 
     # Make sure the molecule the user provided is the active one
@@ -1298,7 +1291,6 @@ def hessian(name, **kwargs):
         lowername = plan.method
         basis = plan.basis
         core.set_global_option("BASIS", basis)
-        core_clean = True
 
     else:
         plan.compute()
