@@ -38,8 +38,6 @@ import sys
 import traceback
 import uuid
 import warnings
-import pprint
-pp = pprint.PrettyPrinter(width=120, compact=True, indent=1)
 
 import numpy as np
 import qcelemental as qcel
@@ -412,7 +410,7 @@ def run_qcschema(input_data, clean=True):
                                           success=False,
                                           error={
                                               'error_type': type(exc).__name__,
-                                              'error_message': ''.join(traceback.format_exception(*sys.exc_info())),
+                                              'error_message': input_data["stdout"] + ''.join(traceback.format_exception(*sys.exc_info())),
                                           })
 
     atexit.register(_quiet_remove, outfile)

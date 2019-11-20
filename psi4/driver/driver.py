@@ -705,7 +705,6 @@ def gradient(name, **kwargs):
 #        if (dertype == 1):
             raise ValidationError("""No analytic derivatives for SCF_TYPE CD.""")
 
-    # Add embedding charges for nbody
     if kwargs.get('embedding_charges', None):
         driver_nbody.electrostatic_embedding(kwargs['embedding_charges'])
 
@@ -1347,7 +1346,6 @@ def hessian(name, **kwargs):
 
 #    dertype = _find_derivative_type('hessian', lowername, kwargs.pop('freq_dertype', kwargs.pop('dertype', None)))
 
-    # Add embedding charges for nbody
     if kwargs.get('embedding_charges', None):
         driver_nbody.electrostatic_embedding(kwargs['embedding_charges'])
 
