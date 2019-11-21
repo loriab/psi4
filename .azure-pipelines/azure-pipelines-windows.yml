@@ -111,6 +111,7 @@ jobs:
                         intel-openmp=%MKL_VERSION% ^
                         mkl-devel=%MKL_VERSION% ^
                         mpmath ^
+                        msgpack-python ^
                         networkx ^
                         ninja ^
                         numpy ^
