@@ -430,6 +430,7 @@ def prepare_options_for_modules(changedOnly=False, commandsInsteadDict=False, gl
        - not all kwargs are independent
 
     """
+    has_changed_snapshot = {module: core.options_to_python(module) for module in _modules}
     options = collections.defaultdict(dict)
     commands = ''
     for opt in core.get_global_option_list():
@@ -446,12 +447,12 @@ def prepare_options_for_modules(changedOnly=False, commandsInsteadDict=False, gl
         if globalsOnly:
             continue
 
-        for module in _modules:
-            if core.option_exists_in_module(module, opt):
+        opt_snapshot = {k: v[opt] for k, v in has_changed_snapshot.items() if opt in v}
+        for module, (lhoc, ohoc) in opt_snapshot.items():
                 if stateInsteadMediated:
-                    hoc = core.has_local_option_changed(module, opt)
+                    hoc = lhoc
                 else:
-                    hoc = core.has_option_changed(module, opt)
+                    hoc = ohoc
                 if hoc or not changedOnly:
                     if stateInsteadMediated:
                         val = core.get_local_option(module, opt)
@@ -480,27 +481,27 @@ def prepare_options_for_set_options():
 
     """
     flat_options = {}
+    has_changed_snapshot = {module: core.options_to_python(module) for module in _modules}
+
     for opt in core.get_global_option_list():
 
         handled_locally = False
         ghoc = core.has_global_option_changed(opt)
-        for module in _modules:
-            if core.option_exists_in_module(module, opt):
-                lhoc = core.has_local_option_changed(module, opt)
-                ohoc = core.has_option_changed(module, opt)
-                if ohoc:
-                    if lhoc:
-                        key = module + '__' + opt
-                        val = core.get_local_option(module, opt)
-                    else:
-                        key = opt
-                        val = core.get_global_option(opt)
-                        handled_locally = True
-                    flat_options[key] = val
+        opt_snapshot = {k: v[opt] for k, v in has_changed_snapshot.items() if opt in v}
+        for module, (lhoc, ohoc) in opt_snapshot.items():
+            if ohoc:
+                if lhoc:
+                    key = module + '__' + opt
+                    val = core.get_local_option(module, opt)
+                else:
+                    key = opt
+                    val = core.get_global_option(opt)
+                    handled_locally = True
+                flat_options[key] = val
 
         if ghoc and not handled_locally:
             # some options are globals section (not level) so not in any module
-            flat_options[opt] = core.get_global_option(opt) 
+            flat_options[opt] = core.get_global_option(opt)
 
     return flat_options
 
