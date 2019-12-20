@@ -20,15 +20,15 @@ def tear_down():
     import glob
     import psi4
     psi4.core.close_outfile()
-    patterns = ['cavity.*', 'grid*', 'pytest_output.*h5',
-                'pytest_output.dat',
-                '*pcmsolver.inp', 'PEDRA.OUT*', 'timer.dat',
-                'FCIDUMP_SCF', 'FCIDUMP_MP2']
-    pytest_scratches = []
-    for pat in patterns:
-        pytest_scratches.extend(glob.glob(pat))
-    for fl in pytest_scratches:
-        try:
-            os.unlink(fl)
-        except (OSError, PermissionError):
-            pass
+    #patterns = ['cavity.*', 'grid*', 'pytest_output.*h5',
+    #            'pytest_output.dat',
+    #            '*pcmsolver.inp', 'PEDRA.OUT*', 'timer.dat',
+    #            'FCIDUMP_SCF', 'FCIDUMP_MP2']
+    #pytest_scratches = []
+    #for pat in patterns:
+    #    pytest_scratches.extend(glob.glob(pat))
+    #for fl in pytest_scratches:
+    #    try:
+    #        os.unlink(fl)
+    #    except (OSError, PermissionError):
+    #        pass
