@@ -417,7 +417,6 @@ def run_qcschema(input_data, clean=True, postclean=True):
         atexit.register(_quiet_remove, outfile)
     else:  # psiapi
         core.close_outfile()
-        print('closing outfile')
 
     return ret
 
