@@ -775,7 +775,7 @@ py::dict py_psi_options_to_python(std::string const& module) {
     for (size_t i = 0; i < all_options.size(); i++) {
         std::string nonconst_key = all_options[i];
         bool in_module = Process::environment.options.exists_in_active(nonconst_key);
-        if(in_module) {
+        if (in_module) {
             Data& ldata = Process::environment.options.get_local(nonconst_key);
             bool lhoc = ldata.has_changed();
             Data& odata = Process::environment.options.use_local(nonconst_key);
@@ -1179,7 +1179,8 @@ PYBIND11_MODULE(core, core) {
              "Given a string of a keyword name *arg1* and a particular module *arg0*, returns whether *arg1* is a "
              "valid option for *arg0*.");
 
-    core.def("options_to_python", py_psi_options_to_python, "Get dictionary of whether options of module have changed.");
+    core.def("options_to_python", py_psi_options_to_python,
+             "Get dictionary of whether options of module have changed.");
 
     // These return/set/print PSI variables found in Process::environment.globals
     core.def("has_scalar_variable",
@@ -1196,10 +1197,9 @@ PYBIND11_MODULE(core, core) {
     core.def("set_scalar_variable",
              [](const std::string& key, double val) { Process::environment.globals[to_upper(key)] = val; },
              "Sets the requested (case-insensitive) double QC variable.");
-    core.def(
-        "set_array_variable",
-        [](const std::string& key, SharedMatrix val) { Process::environment.arrays[to_upper(key)] = val->clone(); },
-        "Sets the requested (case-insensitive) Matrix QC variable.");
+    core.def("set_array_variable", [](const std::string& key,
+                                      SharedMatrix val) { Process::environment.arrays[to_upper(key)] = val->clone(); },
+             "Sets the requested (case-insensitive) Matrix QC variable.");
     core.def("del_scalar_variable", [](const std::string key) { Process::environment.globals.erase(to_upper(key)); },
              "Removes the requested (case-insensitive) double QC variable.");
     core.def("del_array_variable", [](const std::string key) { Process::environment.arrays.erase(to_upper(key)); },
