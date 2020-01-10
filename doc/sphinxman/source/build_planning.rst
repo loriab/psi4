@@ -222,6 +222,8 @@ build system will automatically download and build.
 
 Additionally, there are runtime-only dependencies:
 
+* msgpack-python https://github.com/msgpack/msgpack-python (transitive dependency of QCElemental; optional for QCElemental but required for |PSIfour|)
+
 * NumPy http://www.numpy.org/
 
 * networkx https://github.com/networkx/networkx (transitive dependency of QCElemental; optional for QCElemental but required for |PSIfour|)
