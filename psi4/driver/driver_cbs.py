@@ -1187,11 +1187,7 @@ def _build_cbs_compute(metameta, metadata):
     ptype = metameta['ptype']
 
     # Build string of title banner
-    cbsbanners = ''
-    cbsbanners += """core.print_out('\\n')\n"""
-    cbsbanners += """p4util.banner(f' CBS Setup: {label} ')\n"""
-    cbsbanners += """core.print_out('\\n')\n\n"""
-    exec(cbsbanners)
+    instructions = "\n" + p4util.banner(f" CBS Setup{':' + label if label else ''} ", strNotOutfile=True) + "\n"
 
     # Call schemes for each portion of total energy to 'place orders' for calculations needed
     d_fields = [
@@ -1260,7 +1256,6 @@ def _build_cbs_compute(metameta, metadata):
                 if dups >= 1:
                     del JOBS[indx_job]
 
-    instructions = ''
     instructions += """    Naive listing of computations required.\n"""
     for mc in JOBS:
         instructions += listfmt.format(mc['f_wfn'], mc['f_basis'] + " + options" * bool(mc['f_options']),
@@ -1282,8 +1277,6 @@ def _build_cbs_compute(metameta, metadata):
     for mc in JOBS:
         instructions += listfmt.format(mc['f_wfn'], mc['f_basis'] + " + options" * bool(mc['f_options']),
                                        VARH[mc['f_wfn']][mc['f_wfn']], _addlremark[ptype])
-    core.print_out(instructions)
-    logger.debug(instructions)
 
     #     Expand listings to all that will be obtained
     TROVE = []
@@ -1291,12 +1284,12 @@ def _build_cbs_compute(metameta, metadata):
         for wfn in VARH[job['f_wfn']]:
             TROVE.append(dict(zip(_f_fields, [wfn, job['f_basis'], job['f_zeta'], job['f_options'], 0.0, None, None])))
 
-    instructions = """\n    Full listing of computations to be obtained (required and bonus).\n"""
+    instructions += """\n    Full listing of computations to be obtained (required and bonus).\n"""
     for mc in TROVE:
         instructions += listfmt.format(mc['f_wfn'], mc['f_basis'] + " + options" * bool(mc['f_options']),
                                        VARH[mc['f_wfn']][mc['f_wfn']], _addlremark[ptype])
     core.print_out(instructions)
-    logger.debug(instructions)
+    logger.info(instructions)
 
     return GRAND_NEED, JOBS, TROVE
 
@@ -1310,13 +1303,12 @@ def _assemble_cbs_components(metameta, TROVE, GRAND_NEED):
     label = metameta['label']
     nat = metameta['molecule'].natom()
     ptype = metameta['ptype']
+    verbose = metameta['verbose']
 
     # Build string of title banner
-    cbsbanners = ''
-    cbsbanners += """core.print_out('\\n')\n"""
-    cbsbanners += """p4util.banner(f' CBS Results: {label} ')\n"""
-    cbsbanners += """core.print_out('\\n')\n\n"""
-    exec(cbsbanners)
+    instructions = "\n" + p4util.banner(f" CBS Results{':' + label if label else ''} ", strNotOutfile=True) + "\n"
+    core.print_out(instructions)
+    logger.info(instructions)
 
     # Insert obtained energies into the array that stores the cbs stages
     for stage in GRAND_NEED:
@@ -1338,7 +1330,7 @@ def _assemble_cbs_components(metameta, TROVE, GRAND_NEED):
     finalhessian = None
 
     for stage in GRAND_NEED:
-        hiloargs = {'alpha': stage['d_alpha']}
+        hiloargs = {'alpha': stage['d_alpha'], 'verbose': verbose}
 
         grad_available = all([lmh['f_gradient'] is not None for lmh in stage['d_need'].values()])
         hess_available = all([lmh['f_hessian'] is not None for lmh in stage['d_need'].values()])
@@ -1375,7 +1367,7 @@ def _assemble_cbs_components(metameta, TROVE, GRAND_NEED):
     return cbs_results, GRAND_NEED
 
 
-def _summary_table(metadata, TROVE, GRAND_NEED):
+def _summary_table(metadata, TROVE, GRAND_NEED) -> str:
     """Build string of results table"""
 
     delimit = '  ' + '-' * 105 + '\n'
@@ -1485,8 +1477,7 @@ class CompositeComputer(BaseComputer):
             'label': None,
             'molecule': self.molecule,
         }
-        logger.debug('METAMETA')
-        logger.debug(pp.pformat(self.metameta))
+        # logger.debug("METAMETA\n" + pp.pformat(self.metameta))
 
         if data['metadata']:
             if data['metadata'][0]["wfn"] not in VARH.keys():
@@ -1498,10 +1489,12 @@ class CompositeComputer(BaseComputer):
                 for delta in self.metadata[1:]:
                     if delta["wfn"] not in VARH.keys():
                         raise ValidationError(
-                            f"""Requested higher {delta["treatment"]} method '{delta["wfn"]}' is not recognized. Add it to VARH in driver_cbs.py to proceed.""")
+                            f"""Requested higher {delta["treatment"]} method '{delta["wfn"]}' is not recognized. Add it to VARH in driver_cbs.py to proceed."""
+                        )
                     if delta["wfn_lo"] not in VARH.keys():
                         raise ValidationError(
-                            f"""Requested lesser {delta["treament"]} method '{delta["wfn_lo"]}' is not recognized. Add it to VARH in driver_cbs.py to proceed.""")
+                            f"""Requested lesser {delta["treament"]} method '{delta["wfn_lo"]}' is not recognized. Add it to VARH in driver_cbs.py to proceed."""
+                        )
 
             self.cbsrec, self.compute_list, self.trove = _build_cbs_compute(self.metameta, self.metadata)
 
@@ -1520,8 +1513,7 @@ class CompositeComputer(BaseComputer):
                     })
                 self.task_list.append(task)
 
-                logger.debug('TASK')
-                logger.debug(pp.pformat(task.dict()))
+                # logger.debug("TASK\n" + pp.pformat(task.dict()))
 
     def build_tasks(self, obj, **kwargs):
         # permanently a dummy function
@@ -1531,6 +1523,12 @@ class CompositeComputer(BaseComputer):
         return [t.plan() for t in self.task_list]
 
     def compute(self, client=None):
+        label = self.metameta['label']
+        instructions = "\n" + p4util.banner(f" CBS Computations{':' + label if label else ''} ",
+                                            strNotOutfile=True) + "\n"
+        logger.debug(instructions)
+        core.print_out(instructions)
+
         with p4util.hold_options_state():
             for t in reversed(self.task_list):
                 t.compute(client=client)
@@ -1579,17 +1577,16 @@ class CompositeComputer(BaseComputer):
                     mce['f_gradient'] = mc['f_gradient']
                     mce['f_hessian'] = mc['f_hessian']
 
-            logger.debug('MC')
-            logger.debug(pp.pformat(mc))
+            # logger.debug("MC\n" + pp.pformat(mc))
 
         cbs_results, self.cbsrec = _assemble_cbs_components(self.metameta, self.trove, self.cbsrec)
 
-        core.print_out(_summary_table(self.metadata, self.trove, self.cbsrec))
+        instructions = _summary_table(self.metadata, self.trove, self.cbsrec)
+        core.print_out(instructions)
+        logger.info(instructions)
 
-        # logger.debug('\nCBS_RESULTS')
-        # logger.debug(pp.pformat(cbs_results))
-        # logger.debug('\nGRAND_NEED')
-        # logger.debug(pp.pformat(self.cbsrec))
+        # logger.debug('CBS_RESULTS\n' + pp.pformat(cbs_results))
+        # logger.debug('GRAND_NEED\n' + pp.pformat(self.cbsrec))
 
         return cbs_results
 
@@ -1640,8 +1637,7 @@ class CompositeComputer(BaseComputer):
                 'success': True,
             })
 
-        logger.debug('\nCBS QCSchema:')
-        logger.debug(pp.pformat(cbsjob.dict()))
+        logger.debug('CBS QCSchema\n' + pp.pformat(cbsjob.dict()))
 
         return cbsjob
 
@@ -1667,7 +1663,7 @@ def _cbs_schema_to_wfn(cbsjob):
 
     # new skeleton wavefunction w/mol, highest-SCF basis (just to choose one), & not energy
     mol = core.Molecule.from_schema(cbsjob.molecule.dict())
-    basis = core.BasisSet.build(mol, "ORBITAL", 'def2-svp')
+    basis = core.BasisSet.build(mol, "ORBITAL", 'def2-svp', quiet=True)
     wfn = core.Wavefunction(mol, basis)
 
     # wfn.set_energy(cbsjob['extras'['qcvars'].get('CBS TOTAL ENERGY'))  # catches Wfn.energy_
