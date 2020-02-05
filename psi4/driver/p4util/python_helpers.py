@@ -615,6 +615,7 @@ core.set_global_option_python = _core_set_global_option_python
 
 ## QCvar helps
 
+
 def _qcvar_warnings(key):
     if any([key.upper().endswith(" DIPOLE " + cart) for cart in ["X", "Y", "Z"]]):
         warnings.warn(
