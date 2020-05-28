@@ -85,7 +85,7 @@ def runner_asserter(inp, subject, method, basis, tnm):
         with pytest.raises(errtype) as e:
             driver_call[driver](inp["call"], molecule=subject, **extra_kwargs)
 
-        assert errmsg in str(e.value)
+        assert errmsg in str(e.value), f'"{errmsg}" not in "{e.value}"'
         return
 
     ret, wfn = driver_call[driver](inp["call"], molecule=subject, return_wfn=True, **extra_kwargs)
