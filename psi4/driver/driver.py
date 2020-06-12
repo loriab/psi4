@@ -33,7 +33,6 @@ properties, and vibrational frequency calculations.
 """
 import os
 import re
-import sys
 import copy
 import json
 import shutil
