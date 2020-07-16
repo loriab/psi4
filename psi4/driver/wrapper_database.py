@@ -33,6 +33,7 @@ functions: :py:mod:`driver.energy`, :py:mod:`driver.optimize`,
 """
 import os
 import re
+import sys
 import math
 import pickle
 import collections
