@@ -412,7 +412,8 @@ def run_qcschema(input_data, clean=True, postclean=True):
         ret_data["provenance"] = {
             "creator": "Psi4",
             "version": __version__,
-            "routine": "psi4.schema_runner.run_qcschema"
+            "routine": "psi4.schema_runner.run_qcschema",
+            "module": ret_data.pop("module"),
         }
 
         exit_printing(start_time=start_time, success=True)
@@ -483,6 +484,8 @@ def run_json(json_data, clean=True):
         json_data["success"] = False
 
         json_data["raw_output"] = _read_output(outfile)
+
+    json_data.pop("module", None)
 
     if return_output:
         json_data["raw_output"] = _read_output(outfile)
@@ -643,5 +646,6 @@ def run_json_qcschema(json_data, clean, json_serialization, keep_wfn=False):
     _clean_psi_environ(clean)
 
     json_data["schema_name"] = "qcschema_output"
+    json_data["module"] = wfn.module()
 
     return json_data
