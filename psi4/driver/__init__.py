@@ -30,6 +30,14 @@ import pickle
 
 from . import dependency_check
 
+# printing and logging formatting niceties
+import pprint
+from functools import partial
+import numpy as np
+pp = pprint.PrettyPrinter(width=120, compact=True, indent=1)
+nppp = partial(np.array_str, max_line_width=120, precision=8, suppress_small=True)
+nppp10 = partial(np.array_str, max_line_width=120, precision=10, suppress_small=True)
+
 from qcelemental import constants
 from psi4.driver import psifiles as psif
 
@@ -56,5 +64,5 @@ from psi4.driver import frac
 from psi4.driver.driver import *
 
 # Single functions
-from psi4.driver.driver_cbs import cbs
+from psi4.driver.driver_cbs import cbs  # remove in v1.5? when UpdateHelper expires
 from psi4.driver.p4util.python_helpers import set_options, set_module_options, pcm_helper, basis_helper

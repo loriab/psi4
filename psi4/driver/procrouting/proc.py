@@ -62,6 +62,31 @@ from . import solvent
 # ATTN NEW ADDITIONS!
 # consult http://psicode.org/psi4manual/master/proc_py.html
 
+
+def select_scf_gradient(name, **kwargs):
+    """Function selecting the algorithm for an SCF gradient call
+    and directing to specified or best-performance default modules.
+
+    """
+    reference = core.get_option('SCF', 'REFERENCE')
+    mtd_type = core.get_global_option('SCF_TYPE')
+    module = core.get_global_option('QC_MODULE')
+    # Considering only scf
+
+    if mtd_type == 'CD':
+        func = None
+    else:
+        func = run_scf_gradient
+
+    if func is None:
+        raise ManagedMethodError(['select_scf_gradient', name, 'SCF_TYPE', mtd_type, reference, module])
+
+    if kwargs.pop('probe', False):
+        return
+    else:
+        return func(name, **kwargs)
+
+
 def select_mp2(name, **kwargs):
     """Function selecting the algorithm for a MP2 energy call
     and directing to specified or best-performance default modules.
@@ -1249,12 +1274,18 @@ def scf_wavefunction_factory(name, ref_wfn, reference, **kwargs):
         # For the dimer SAPT calculation, we need to account for the external potential
         # in all of the subsystems A, B, C. So we add them all in total_external_potential
         # and set the external potential to the dimer wave function
+        from psi4.driver.qmmm import QMMMbohr
+
         total_external_potential = core.ExternalPotential()
 
         for frag in kwargs['external_potentials']:
             if frag.upper() in "ABC":
-                wfn.set_potential_variable(frag.upper(), kwargs['external_potentials'][frag].extern)
-                total_external_potential.appendCharges(kwargs['external_potentials'][frag].extern.getCharges())
+                chrgfield = QMMMbohr()
+                for qxyz in kwargs['external_potentials'][frag]:
+                    chrgfield.extern.addCharge(qxyz[0], qxyz[1][0], qxyz[1][1], qxyz[1][2])
+
+                wfn.set_potential_variable(frag.upper(), chrgfield.extern)
+                total_external_potential.appendCharges(chrgfield.extern.getCharges())
 
             else:
                 core.print_out("\n  Warning! Unknown key for the external_potentials argument: %s" % frag)

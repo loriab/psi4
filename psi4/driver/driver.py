@@ -34,9 +34,11 @@ properties, and vibrational frequency calculations.
 import json
 import os
 import re
+import copy
 import shutil
 import sys
 from typing import Union
+import logging
 
 import numpy as np
 
@@ -45,88 +47,26 @@ from psi4.driver import driver_util
 from psi4.driver import driver_cbs
 from psi4.driver import driver_nbody
 from psi4.driver import driver_findif
+from psi4.driver import task_planner
 from psi4.driver import p4util
 from psi4.driver import qcdb
-from psi4.driver.procrouting import *
+from psi4.driver import pp
 from psi4.driver.p4util.exceptions import *
+from psi4.driver.procrouting import *
 from psi4.driver.mdi_engine import mdi_run
+from psi4.driver.task_base import AtomicComputer
 
-# never import wrappers or aliases into this file
-
-
-def _find_derivative_type(ptype, method_name, user_dertype):
-    r"""
-    Figures out the derivative type (0, 1, 2) for a given method_name. Will
-    first use user default and then the highest available derivative type for
-    a given method.
-    """
-
-    derivatives = {"gradient": 1, "hessian": 2}
-
-    if ptype not in derivatives:
-        raise ValidationError("_find_derivative_type: ptype must either be gradient or hessian.")
-
-    dertype = "(auto)"
-
-    # If user type is None, try to find the highest derivative
-    if user_dertype is None:
-        if (ptype == 'hessian') and (method_name in procedures['hessian']):
-            dertype = 2
-            # Will need special logic if we ever have managed Hessians
-        elif method_name in procedures['gradient']:
-            dertype = 1
-            if procedures['gradient'][method_name].__name__.startswith('select_'):
-                try:
-                    procedures['gradient'][method_name](method_name, probe=True)
-                except ManagedMethodError:
-                    dertype = 0
-        elif method_name in procedures['energy']:
-            dertype = 0
-    else:
-        # Quick sanity check. Only *should* be able to be None or int, but hey, kids today...
-        if not isinstance(user_dertype, int):
-            raise ValidationError("_find_derivative_type: user_dertype should only be None or int!")
-        dertype = user_dertype
-
-    if (core.get_global_option('INTEGRAL_PACKAGE') == 'ERD') and (dertype != 0):
-        raise ValidationError('INTEGRAL_PACKAGE ERD does not play nicely with derivatives, so stopping.')
-
-    if (core.get_global_option('PCM')) and (dertype != 0):
-        core.print_out('\nPCM analytic gradients are not implemented yet, re-routing to finite differences.\n')
-        dertype = 0
-
-    if core.get_global_option("RELATIVISTIC") in ["X2C", "DKH"]:
-        core.print_out("\nRelativistic analytic gradients are not implemented yet, re-routing to finite differences.\n")
-        dertype = 0
-
-    # Summary validation
-    if (dertype == 2) and (method_name in procedures['hessian']):
-        pass
-    elif (dertype == 1) and (method_name in procedures['gradient']):
-        pass
-    elif (dertype == 0) and (method_name in procedures['energy']):
-        pass
-    else:
-        alternatives = ''
-        alt_method_name = p4util.text.find_approximate_string_matches(method_name, procedures['energy'].keys(), 2)
-        if len(alt_method_name) > 0:
-            alternatives = """ Did you mean? %s""" % (' '.join(alt_method_name))
-
-        raise ValidationError("""Derivative method 'name' %s and derivative level 'dertype' %s are not available.%s"""
-                              % (method_name, str(dertype), alternatives))
-
-    dertype = min(dertype, derivatives[ptype])
-
-    return dertype
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
-def _energy_is_invariant(gradient, stationary_criterion=1.e-2):
+def _energy_is_invariant(gradient_rms, stationary_criterion=1.e-2):
     """Polls options and probes `gradient` to return whether current method
     and system expected to be invariant to translations and rotations of
     the coordinate system.
 
     """
-    stationary_point = gradient.rms() < stationary_criterion  # 1.e-2 pulled out of a hat
+    stationary_point = gradient_rms < stationary_criterion  # 1.e-2 pulled out of a hat
 
     mol = core.get_active_molecule()
     efp_present = hasattr(mol, 'EFP')
@@ -138,76 +78,12 @@ def _energy_is_invariant(gradient, stationary_criterion=1.e-2):
     return translations_projection_sound, rotations_projection_sound
 
 
-def _process_displacement(derivfunc, method, molecule, displacement, n, ndisp, **kwargs):
-    """A helper function to perform all processing for an individual finite
-       difference computation.
-
-       Parameters
-       ----------
-       derivfunc : func
-           The function computing the target derivative.
-       method : str
-          A string specifying the method to be used for the computation.
-       molecule: psi4.core.molecule or qcdb.molecule
-          The molecule for the computation. All processing is handled internally.
-          molecule must not be modified!
-       displacement : dict
-          A dictionary containing the necessary information for the displacement.
-          See driver_findif/_geom_generator.py docstring for details.
-       n : int
-          The number of the displacement being computed, for print purposes.
-       ndisp : int
-           The total number of geometries, for print purposes.
-
-       Returns
-       -------
-       wfn: :py:class:`~psi4.core.Wavefunction`
-           The wavefunction computed.
-    """
-
-    # print progress to file and screen
-    core.print_out('\n')
-    p4util.banner('Loading displacement %d of %d' % (n, ndisp))
-    print(""" %d""" % (n), end=('\n' if (n == ndisp) else ''))
-    sys.stdout.flush()
-
-    parent_group = molecule.point_group()
-    clone = molecule.clone()
-    clone.reinterpret_coordentry(False)
-    clone.fix_orientation(True)
-
-    # Load in displacement (flat list) into the active molecule
-    geom_array = np.reshape(displacement["geometry"], (-1, 3))
-    clone.set_geometry(core.Matrix.from_array(geom_array))
-
-    # If the user insists on symmetry, weaken it if some is lost when displacing.
-    if molecule.symmetry_from_input():
-        disp_group = clone.find_highest_point_group()
-        new_bits = parent_group.bits() & disp_group.bits()
-        new_symm_string = qcdb.PointGroup.bits_to_full_name(new_bits)
-        clone.reset_point_group(new_symm_string)
-
-    # clean possibly necessary for n=1 if its irrep (unsorted in displacement list) different from initial G0 for freq
-    core.clean()
-
-    # Perform the derivative calculation
-    derivative, wfn = derivfunc(method, return_wfn=True, molecule=clone, **kwargs)
-    displacement["energy"] = core.variable('CURRENT ENERGY')
-
-    # If we computed a first or higher order derivative, set it.
-    if derivfunc == gradient:
-        displacement["gradient"] = wfn.gradient().np.ravel().tolist()
-
-    # clean may be necessary when changing irreps of displacements
-    core.clean()
-
-    return wfn
-
-
 def _filter_renamed_methods(compute, method):
     r"""Raises UpgradeHelper when a method has been renamed."""
     if method == "dcft":
-        raise UpgradeHelper(compute + "('dcft')", compute + "('dct')", 1.4, " All instances of 'dcft' should be replaced with 'dct'.")
+        raise UpgradeHelper(compute + "('dcft')", compute + "('dct')", 1.4,
+                            " All instances of 'dcft' should be replaced with 'dct'.")
+
 
 def energy(name, **kwargs):
     r"""Function to compute the single-point electronic energy.
@@ -523,38 +399,60 @@ def energy(name, **kwargs):
 
     core.print_out("\nScratch directory: %s\n" % core.IOManager.shared_object().get_default_path())
 
-    # Bounce to CP if bsse kwarg
-    if kwargs.get('bsse_type', None) is not None:
-        return driver_nbody.nbody_gufunc(energy, name, ptype='energy', **kwargs)
-
-    # Bounce if name is function
-    if hasattr(name, '__call__'):
-        return name(energy, kwargs.pop('label', 'custom function'), ptype='energy', **kwargs)
-
-    # Allow specification of methods to arbitrary order
-    lowername = name.lower()
-    lowername, level = driver_util.parse_arbitrary_order(lowername)
-    if level:
-        kwargs['level'] = level
-
-    # Bounce to CBS if "method/basis" name
-    if "/" in lowername:
-        return driver_cbs._cbs_gufunc(energy, name, ptype='energy', **kwargs)
-
-    _filter_renamed_methods("energy", lowername)
-
-    # Commit to procedures['energy'] call hereafter
+    basisstash = p4util.OptionsState(['BASIS'])
     return_wfn = kwargs.pop('return_wfn', False)
-    core.clean_variables()
 
     # Make sure the molecule the user provided is the active one
     molecule = kwargs.pop('molecule', core.get_active_molecule())
     molecule.update_geometry()
 
+    ## Pre-planning interventions
+
+    # * Trip on function or alias as name
+    lowername = driver_util.upgrade_interventions(name)
+
+    # * Allow specification of methods to arbitrary order
+    lowername, level = driver_util.parse_arbitrary_order(lowername)
+    if level:
+        kwargs['level'] = level
+
+    _filter_renamed_methods("energy", lowername)
+
+    # * Avert pydantic anger at incomplete modelchem spec
+    userbas = core.get_global_option('BASIS') or kwargs.get('basis')
+    if lowername in integrated_basis_methods and userbas is None:
+        kwargs['basis'] = '(auto)'
+
+    # Are we planning?
+    plan = task_planner.task_planner("energy", lowername, molecule, **kwargs)
+    logger.debug('ENERGY PLAN')
+    logger.debug(pp.pformat(plan.dict()))
+
+    if kwargs.get("return_plan", False):
+        # Plan-only requested
+        return plan
+
+    elif not isinstance(plan, AtomicComputer):
+        # Advanced "Computer" active
+        plan.compute()
+        return plan.get_psi_results(return_wfn=return_wfn)
+
+    else:
+        # We have unpacked to an AtomicInput
+        lowername = plan.method
+        basis = plan.basis
+        core.set_global_option("BASIS", basis)
+
+    ## Second half of this fn -- entry means program running exactly analytic 0th derivative
+
+    # Commit to procedures['energy'] call hereafter
+    core.clean_variables()
+
     #for precallback in hooks['energy']['pre']:
     #    precallback(lowername, **kwargs)
 
-    optstash = driver_util._set_convergence_criterion('energy', lowername, 6, 8, 6, 8, 6)
+    # needed (+restore below) so long as AtomicComputer-s aren't run through json (where convcrit also lives)
+    optstash = driver_util.negotiate_convergence_criterion((0, 0), lowername, return_optstash=True)
     optstash2 = p4util.OptionsState(['SCF', 'GUESS'])
 
     # Before invoking the procedure, we rename any file that should be read.
@@ -596,13 +494,18 @@ def energy(name, **kwargs):
             core.print_out(f" \n Copying restart file <{item}> to <{targetfile}> for internal processing\n")
             shutil.copy(item, targetfile)
 
+    if kwargs.get('embedding_charges', None):
+        driver_nbody.electrostatic_embedding(kwargs['embedding_charges'])
+
     wfn = procedures['energy'][lowername](lowername, molecule=molecule, **kwargs)
 
     for postcallback in hooks['energy']['post']:
         postcallback(lowername, wfn=wfn, **kwargs)
 
+    basisstash.restore()
     optstash.restore()
     optstash2.restore()
+
     if return_wfn:  # TODO current energy safer than wfn.energy() for now, but should be revisited
 
         # TODO place this with the associated call, very awkward to call this in other areas at the moment
@@ -636,157 +539,85 @@ def gradient(name, **kwargs):
     >>> np.array(G)
 
     """
+    ## First half of this fn -- entry means user wants a 1st derivative by any means
+
     kwargs = p4util.kwargs_lower(kwargs)
-    
+
     core.print_out("\nScratch directory: %s\n" % core.IOManager.shared_object().get_default_path())
 
-    # Figure out what kind of gradient this is
-    if hasattr(name, '__call__'):
-        if name.__name__ in ['cbs', 'complete_basis_set']:
-            gradient_type = 'cbs_wrapper'
-        else:
-            # Bounce to name if name is non-CBS function
-            gradient_type = 'custom_function'
-    elif kwargs.get('bsse_type', None) is not None:
-        gradient_type = 'nbody_gufunc'
-    elif '/' in name:
-        gradient_type = 'cbs_gufunc'
-    else:
-        gradient_type = 'conventional'
-
-    # Figure out lowername, dertype, and func
-    # If we have analytical gradients we want to pass to our wrappers, otherwise we want to run
-    # finite-diference energy or cbs energies
-    # TODO MP5/cc-pv[DT]Z behavior unknown due to "levels"
-    user_dertype = kwargs.pop('dertype', None)
-    if gradient_type == 'custom_function':
-        if user_dertype is None:
-            dertype = 0
-            core.print_out(
-                "\nGradient: Custom function passed in without a defined dertype, assuming fd-energy based gradient.\n"
-            )
-        else:
-            core.print_out("\nGradient: Custom function passed in with a dertype of %d\n" % user_dertype)
-            dertype = user_dertype
-
-        if dertype == 1:
-            return name(gradient, kwargs.pop('label', 'custom function'), ptype='gradient', **kwargs)
-        else:
-            optstash = driver_util._set_convergence_criterion('energy', 'scf', 8, 10, 8, 10, 8)
-            lowername = name
-
-    elif gradient_type == 'nbody_gufunc':
-        return driver_nbody.nbody_gufunc(gradient, name, ptype='gradient', **kwargs)
-
-    elif gradient_type == 'cbs_wrapper':
-        cbs_methods = driver_cbs._cbs_wrapper_methods(**kwargs)
-        dertype = min([_find_derivative_type('gradient', method, user_dertype) for method in cbs_methods])
-        if dertype == 1:
-            # Bounce to CBS (directly) in pure-gradient mode if name is CBS and all parts have analytic grad. avail.
-            return name(gradient, kwargs.pop('label', 'custom function'), ptype='gradient', **kwargs)
-        else:
-            optstash = driver_util._set_convergence_criterion('energy', cbs_methods[0], 8, 10, 8, 10, 8)
-            lowername = name
-            # Pass through to G by E
-
-    elif gradient_type == 'cbs_gufunc':
-        cbs_methods = driver_cbs._parse_cbs_gufunc_string(name.lower())[0]
-        for method in cbs_methods:
-            _filter_renamed_methods("gradient", method)
-        dertype = min([_find_derivative_type('gradient', method, user_dertype) for method in cbs_methods])
-        lowername = name.lower()
-        if dertype == 1:
-            # Bounce to CBS in pure-gradient mode if "method/basis" name and all parts have analytic grad. avail.
-            return driver_cbs._cbs_gufunc(gradient, name, ptype='gradient', **kwargs)
-        else:
-            # Set method-dependent scf convergence criteria (test on procedures['energy'] since that's guaranteed)
-            optstash = driver_util._set_convergence_criterion('energy', cbs_methods[0], 8, 10, 8, 10, 8)
-
-    else:
-        # Allow specification of methods to arbitrary order
-        lowername = name.lower()
-        _filter_renamed_methods("gradient", lowername)
-        lowername, level = driver_util.parse_arbitrary_order(lowername)
-        if level:
-            kwargs['level'] = level
-
-        # Prevent methods that do not have associated gradients
-        if lowername in energy_only_methods:
-            raise ValidationError("gradient('%s') does not have an associated gradient" % name)
-
-        dertype = _find_derivative_type('gradient', lowername, user_dertype)
-
-        # Set method-dependent scf convergence criteria (test on procedures['energy'] since that's guaranteed)
-        optstash = driver_util._set_convergence_criterion('energy', lowername, 8, 10, 8, 10, 8)
-
-
-    # Commit to procedures[] call hereafter
+    basisstash = p4util.OptionsState(['BASIS'])
     return_wfn = kwargs.pop('return_wfn', False)
-    core.clean_variables()
-
-    # no analytic derivatives for scf_type cd
-    if core.get_global_option('SCF_TYPE') == 'CD':
-        if (dertype == 1):
-            raise ValidationError("""No analytic derivatives for SCF_TYPE CD.""")
 
     # Make sure the molecule the user provided is the active one
     molecule = kwargs.pop('molecule', core.get_active_molecule())
     molecule.update_geometry()
 
-    # Does dertype indicate an analytic procedure both exists and is wanted?
-    if dertype == 1:
-        core.print_out("""gradient() will perform analytic gradient computation.\n""")
+    # Convert wrapper directives from options (where ppl know to find them) to kwargs (suitable for non-globals transmitting)
+    kwargs['findif_verbose'] = core.get_option("FINDIF", "PRINT")
+    kwargs['findif_stencil_size'] = core.get_option("FINDIF", "POINTS")
+    kwargs['findif_step_size'] = core.get_option("FINDIF", "DISP_SIZE")
 
-        # Perform the gradient calculation
-        wfn = procedures['gradient'][lowername](lowername, molecule=molecule, **kwargs)
+    ## Pre-planning interventions
+
+    # * Trip on function or alias as name
+    lowername = driver_util.upgrade_interventions(name)
+    _filter_renamed_methods("gradient", lowername)
+
+    # * Allow specification of methods to arbitrary order
+    lowername, level = driver_util.parse_arbitrary_order(lowername)
+    if level:
+        kwargs['level'] = level
+
+    # * Prevent methods that do not have associated derivatives
+    if lowername in energy_only_methods:
+        raise ValidationError(f"`gradient('{name}')` does not have an associated gradient.")
+
+    # * Avert pydantic anger at incomplete modelchem spec
+    userbas = core.get_global_option('BASIS') or kwargs.get('basis')
+    if lowername in integrated_basis_methods and userbas is None:
+        kwargs['basis'] = '(auto)'
+
+    # Are we planning?
+    plan = task_planner.task_planner("gradient", lowername, molecule, **kwargs)
+    logger.debug('GRADIENT PLAN')
+    logger.debug(pp.pformat(plan.dict()))
+
+    if kwargs.get("return_plan", False):
+        # Plan-only requested
+        return plan
+
+    elif not isinstance(plan, AtomicComputer):
+        # Advanced "Computer" active
+        plan.compute()
+        return plan.get_psi_results(return_wfn=return_wfn)
 
     else:
-        core.print_out("""gradient() will perform gradient computation by finite difference of analytic energies.\n""")
+        # We have unpacked to an AtomicInput
+        lowername = plan.method
+        basis = plan.basis
+        core.set_global_option("BASIS", basis)
 
-        opt_iter = kwargs.get('opt_iter', 1)
-        if opt_iter is True:
-            opt_iter = 1
+    ## Second half of this fn -- entry means program running exactly analytic 1st derivative
 
-        if opt_iter == 1:
-            print('Performing finite difference calculations')
+    # Set method-dependent scf convergence criteria (test on procedures['energy'] since that's guaranteed)
+    optstash = driver_util.negotiate_convergence_criterion((1, 1), lowername, return_optstash=True)
 
-        # Obtain list of displacements
-        findif_meta_dict = driver_findif.gradient_from_energies_geometries(molecule)
-        ndisp = len(findif_meta_dict["displacements"]) + 1
+    # Commit to procedures[] call hereafter
+    core.clean_variables()
 
-        print(""" %d displacements needed ...""" % (ndisp), end='')
+    # no analytic derivatives for scf_type cd
+    if core.get_global_option('SCF_TYPE') == 'CD':
+        raise ValidationError("""No analytic derivatives for SCF_TYPE CD.""")
 
-        wfn = _process_displacement(energy, lowername, molecule, findif_meta_dict["reference"], 1, ndisp,
-                                    **kwargs)
-        var_dict = core.variables()
-        # ensure displacement calculations do not use restart_file orbitals.
-        kwargs.pop('restart_file', None)
+    if kwargs.get('embedding_charges', None):
+        driver_nbody.electrostatic_embedding(kwargs['embedding_charges'])
 
-        for n, displacement in enumerate(findif_meta_dict["displacements"].values(), start=2):
-            _process_displacement(
-                energy, lowername, molecule, displacement, n, ndisp, write_orbitals=False, **kwargs)
+    core.print_out("""gradient() will perform analytic gradient computation.\n""")
 
-        # Reset variables
-        for key, val in var_dict.items():
-            core.set_variable(key, val)
+    # Perform the gradient calculation
+    wfn = procedures['gradient'][lowername](lowername, molecule=molecule, **kwargs)
 
-        # Compute the gradient
-        core.set_local_option('FINDIF', 'GRADIENT_WRITE', True)
-        G = driver_findif.assemble_gradient_from_energies(findif_meta_dict)
-        grad_psi_matrix = core.Matrix.from_array(G)
-        grad_psi_matrix.print_out()
-        wfn.set_gradient(grad_psi_matrix)
-        core.set_variable('CURRENT GRADIENT', grad_psi_matrix)
-
-        # Explicitly set the current energy..
-        if isinstance(lowername, str) and lowername in procedures['energy']:
-            # this correctly filters out cbs fn and "hf/cc-pvtz"
-            # it probably incorrectly filters out mp5, but reconsider in DDD
-            core.set_variable(f"{lowername.upper()} TOTAL GRADIENT", grad_psi_matrix)
-            wfn.set_variable(f"{lowername.upper()} TOTAL GRADIENT", grad_psi_matrix)
-        core.set_variable('CURRENT ENERGY', findif_meta_dict["reference"]["energy"])
-        wfn.set_variable('CURRENT ENERGY', findif_meta_dict["reference"]["energy"])
-
+    basisstash.restore()
     optstash.restore()
 
     if core.get_option('FINDIF', 'GRADIENT_WRITE'):
@@ -882,37 +713,75 @@ def properties(*args, **kwargs):
     """
     kwargs = p4util.kwargs_lower(kwargs)
 
+    basisstash = p4util.OptionsState(['BASIS'])
+    return_wfn = kwargs.pop('return_wfn', False)
+
     # Make sure the molecule the user provided is the active one
     molecule = kwargs.pop('molecule', core.get_active_molecule())
     molecule.update_geometry()
-    kwargs['molecule'] = molecule
 
-    # Allow specification of methods to arbitrary order
-    lowername = args[0].lower()
+    ## Pre-planning interventions
+
+    # * Trip on function or alias as name
+    lowername = driver_util.upgrade_interventions(args[0])
+
+    # * Allow specification of methods to arbitrary order
     lowername, level = driver_util.parse_arbitrary_order(lowername)
     if level:
         kwargs['level'] = level
 
-    if "/" in lowername:
-        return driver_cbs._cbs_gufunc(properties, lowername, ptype='properties', **kwargs)
+    _filter_renamed_methods("properties", lowername)
 
-    return_wfn = kwargs.pop('return_wfn', False)
     props = kwargs.get('properties', ['dipole', 'quadrupole'])
-
     if len(args) > 1:
         props += args[1:]
-
     kwargs['properties'] = p4util.drop_duplicates(props)
-    optstash = driver_util._set_convergence_criterion('properties', lowername, 6, 10, 6, 10, 8)
-    wfn = procedures['properties'][lowername](lowername, **kwargs)
 
+    # * Avert pydantic anger at incomplete modelchem spec
+    userbas = core.get_global_option('BASIS') or kwargs.get('basis')
+    if lowername in integrated_basis_methods and userbas is None:
+        kwargs['basis'] = '(auto)'
+
+    # Are we planning?
+    plan = task_planner.task_planner("properties", lowername, molecule, **kwargs)
+    logger.debug('PROPERTIES PLAN')
+    logger.debug(pp.pformat(plan.dict()))
+
+    if kwargs.get("return_plan", False):
+        # Plan-only requested
+        return plan
+
+    elif not isinstance(plan, AtomicComputer):
+        # Advanced "Computer" active
+        plan.compute()
+        return plan.get_psi_results(return_wfn=return_wfn)
+
+    else:
+        # We have unpacked to an AtomicInput
+        lowername = plan.method
+        basis = plan.basis
+        core.set_global_option("BASIS", basis)
+
+    ## Second half of this fn -- entry means program running exactly analytic property
+
+    # Commit to procedures['properties'] call hereafter
+    core.clean_variables()
+
+    # needed (+restore below) so long as AtomicComputer-s aren't run through json (where convcrit also lives)
+    optstash = driver_util.negotiate_convergence_criterion(("prop", "prop"), lowername, return_optstash=True)
+
+    if kwargs.get('embedding_charges', None):
+        driver_nbody.electrostatic_embedding(kwargs['embedding_charges'])
+
+    wfn = procedures["properties"][lowername](lowername, molecule=molecule, **kwargs)
+
+    basisstash.restore()
     optstash.restore()
 
     if return_wfn:
         return (core.variable('CURRENT ENERGY'), wfn)
     else:
         return core.variable('CURRENT ENERGY')
-
 
 
 def optimize_geometric(name, **kwargs):
@@ -1098,8 +967,6 @@ def optimize_geometric(name, **kwargs):
         return (return_energy, history)
     else:
         return return_energy
-
-
 
 
 def optimize(name, **kwargs):
@@ -1326,6 +1193,7 @@ def optimize(name, **kwargs):
                                   """carefully making sure all symmetry-dependent """
                                   """input, such as DOCC, is correct.""" % (current_sym, initial_sym))
         kwargs['opt_iter'] = n
+        core.set_variable('GEOMETRY ITERATIONS', n)
 
         # Use orbitals from previous iteration as a guess
         #   set within loop so that can be influenced by fns to optimize (e.g., cbs)
@@ -1365,7 +1233,7 @@ def optimize(name, **kwargs):
             G = core.get_legacy_gradient()  # TODO
             core.IOManager.shared_object().set_specific_retention(1, True)
             core.IOManager.shared_object().set_specific_path(1, './')
-            frequencies(hessian_with_method, molecule=moleculeclone, ref_gradient = G, **kwargs)
+            frequencies(hessian_with_method, molecule=moleculeclone, ref_gradient=G, **kwargs)
             steps_since_last_hessian = 0
             core.set_legacy_gradient(G)
             core.set_global_option('CART_HESS_READ', True)
@@ -1470,84 +1338,95 @@ def hessian(name, **kwargs):
     >>> np.array(H)
 
     """
+    ## First half of this fn -- entry means user wants a 2nd derivative by any means
+
     kwargs = p4util.kwargs_lower(kwargs)
+    basisstash = p4util.OptionsState(['BASIS'])
+    return_wfn = kwargs.pop('return_wfn', False)
 
-    # Figure out what kind of gradient this is
-    if hasattr(name, '__call__'):
-        if name.__name__ in ['cbs', 'complete_basis_set']:
-            gradient_type = 'cbs_wrapper'
-        else:
-            # Bounce to name if name is non-CBS function
-            gradient_type = 'custom_function'
+    # Make sure the molecule the user provided is the active one
+    molecule = kwargs.pop('molecule', core.get_active_molecule())
+    molecule.update_geometry()
 
-    elif kwargs.get('bsse_type', None) is not None:
-        gradient_type = 'nbody_gufunc'
-    elif '/' in name:
-        gradient_type = 'cbs_gufunc'
+    # Convert wrapper directives from options (where ppl know to find them) to kwargs (suitable for non-globals transmitting)
+    kwargs['findif_verbose'] = core.get_option("FINDIF", "PRINT")
+    kwargs['findif_stencil_size'] = core.get_option("FINDIF", "POINTS")
+    kwargs['findif_step_size'] = core.get_option("FINDIF", "DISP_SIZE")
+
+    # Select certain irreps
+    irrep = kwargs.pop('irrep', -1)
+    if irrep == -1:
+        pass  # do all irreps
     else:
-        gradient_type = 'conventional'
+        irrep = driver_util.parse_cotton_irreps(irrep, molecule.schoenflies_symbol())
+        irrep -= 1  # A1 irrep is externally 1, internally 0
+    kwargs['findif_irrep'] = irrep
 
-    # Call appropriate wrappers
-    if gradient_type == 'nbody_gufunc':
-        return driver_nbody.nbody_gufunc(hessian, name.lower(), ptype='hessian', **kwargs)
-    # Check if this is a CBS extrapolation
-    elif gradient_type == "cbs_gufunc":
-        return driver_cbs._cbs_gufunc(hessian, name.lower(), **kwargs, ptype="hessian")
-    elif gradient_type == "cbs_wrapper":
-        return driver_cbs.cbs(hessian, "cbs", **kwargs, ptype="hessian")
-    elif gradient_type != "conventional":
-        raise ValidationError("Hessian: Does not yet support custom functions.")
+    ## Pre-planning interventions
+
+    # * Trip on function or alias as name
+    lowername = driver_util.upgrade_interventions(name)
+    _filter_renamed_methods("hessian", lowername)
+
+    # * Allow specification of methods to arbitrary order
+    lowername, level = driver_util.parse_arbitrary_order(lowername)
+    if level:
+        kwargs['level'] = level
+
+    # * Prevent methods that do not have associated derivatives
+    if lowername in energy_only_methods:
+        raise ValidationError(f"`hessian('{name}')` does not have an associated Hessian.")
+
+    # * Avert pydantic anger at incomplete modelchem spec
+    userbas = core.get_global_option('BASIS') or kwargs.get('basis')
+    if lowername in integrated_basis_methods and userbas is None:
+        kwargs['basis'] = '(auto)'
+
+    # Are we planning?
+    plan = task_planner.task_planner("hessian", lowername, molecule, **kwargs)
+    logger.debug('HESSIAN PLAN')
+    logger.debug(pp.pformat(plan.dict()))
+
+    if kwargs.get("return_plan", False):
+        # Plan-only requested
+        return plan
+
+    elif not isinstance(plan, AtomicComputer):
+        # Advanced "Computer" active
+        plan.compute()
+        return plan.get_psi_results(return_wfn=return_wfn)
+
     else:
-        lowername = name.lower()
+        # We have unpacked to an AtomicInput
+        lowername = plan.method
+        basis = plan.basis
+        core.set_global_option("BASIS", basis)
+
+    ## Second half of this fn -- entry means program running exactly analytic 2nd derivative
 
     _filter_renamed_methods("frequency", lowername)
-    
-    return_wfn = kwargs.pop('return_wfn', False)
     core.clean_variables()
-    dertype = 2
-
-    # Prevent methods that do not have associated energies
-    if lowername in energy_only_methods:
-        raise ValidationError("hessian('%s') does not have an associated hessian" % name)
 
     optstash = p4util.OptionsState(
         ['FINDIF', 'HESSIAN_WRITE'],
         ['FINDIF', 'FD_PROJECT'],
     )
 
-    # Allow specification of methods to arbitrary order
-    lowername, level = driver_util.parse_arbitrary_order(lowername)
-    if level:
-        kwargs['level'] = level
-
-    dertype = _find_derivative_type('hessian', lowername, kwargs.pop('freq_dertype', kwargs.get('dertype', None)))
-
-    # Make sure the molecule the user provided is the active one
-    molecule = kwargs.pop('molecule', core.get_active_molecule())
-    molecule.update_geometry()
+    if kwargs.get('embedding_charges', None):
+        driver_nbody.electrostatic_embedding(kwargs['embedding_charges'])
 
     # Set method-dependent scf convergence criteria (test on procedures['energy'] since that's guaranteed)
-    optstash_conv = driver_util._set_convergence_criterion('energy', lowername, 8, 10, 8, 10, 8)
-
-    # Select certain irreps
-    irrep = kwargs.get('irrep', -1)
-    if irrep == -1:
-        pass  # do all irreps
-    else:
-        irrep = driver_util.parse_cotton_irreps(irrep, molecule.schoenflies_symbol())
-        irrep -= 1  # A1 irrep is externally 1, internally 0
-        if dertype == 2:
-            core.print_out(
-                """hessian() switching to finite difference by gradients for partial Hessian calculation.\n""")
-            dertype = 1
+    optstash_conv = driver_util.negotiate_convergence_criterion((2, 2), lowername, return_optstash=True)
 
     # At stationary point?
     if 'ref_gradient' in kwargs:
         core.print_out("""hessian() using ref_gradient to assess stationary point.\n""")
         G0 = kwargs['ref_gradient']
     else:
-        G0 = gradient(lowername, molecule=molecule, **kwargs)
-    translations_projection_sound, rotations_projection_sound = _energy_is_invariant(G0)
+        tmpkwargs = copy.deepcopy(kwargs)
+        tmpkwargs.pop('dertype', None)
+        G0 = gradient(lowername, molecule=molecule, **tmpkwargs)
+    translations_projection_sound, rotations_projection_sound = _energy_is_invariant(G0.rms())
     core.print_out(
         '\n  Based on options and gradient (rms={:.2E}), recommend {}projecting translations and {}projecting rotations.\n'
         .format(G0.rms(), '' if translations_projection_sound else 'not ',
@@ -1555,121 +1434,25 @@ def hessian(name, **kwargs):
     if not core.has_option_changed('FINDIF', 'FD_PROJECT'):
         core.set_local_option('FINDIF', 'FD_PROJECT', rotations_projection_sound)
 
-    # Does an analytic procedure exist for the requested method?
-    if dertype == 2:
-        core.print_out("""hessian() will perform analytic frequency computation.\n""")
+    # We have the desired method. Do it.
+    core.print_out("""hessian() will perform analytic frequency computation.\n""")
+    wfn = procedures['hessian'][lowername](lowername, molecule=molecule, **kwargs)
+    wfn.set_gradient(G0)
+    basisstash.restore()
+    optstash.restore()
+    optstash_conv.restore()
 
-        # We have the desired method. Do it.
-        wfn = procedures['hessian'][lowername](lowername, molecule=molecule, **kwargs)
-        wfn.set_gradient(G0)
-        optstash.restore()
-        optstash_conv.restore()
-
-        # TODO: check that current energy's being set to the right figure when this code is actually used
-        core.set_variable('CURRENT ENERGY', wfn.energy())
-        wfn.set_variable('CURRENT ENERGY', wfn.energy())
-
-    elif dertype == 1:
-        core.print_out(
-            """hessian() will perform frequency computation by finite difference of analytic gradients.\n""")
-
-        # Obtain list of displacements
-        findif_meta_dict = driver_findif.hessian_from_gradients_geometries(molecule, irrep)
-
-        # Record undisplaced symmetry for projection of displaced point groups
-        core.set_global_option("PARENT_SYMMETRY", molecule.schoenflies_symbol())
-
-        ndisp = len(findif_meta_dict["displacements"]) + 1
-
-        print(""" %d displacements needed.""" % ndisp)
-
-        wfn = _process_displacement(gradient, lowername, molecule, findif_meta_dict["reference"], 1, ndisp,
-                                    **kwargs)
-        var_dict = core.variables()
-        # ensure displacement calculations do not use restart_file orbitals.
-        kwargs.pop('restart_file', None)
-
-        for n, displacement in enumerate(findif_meta_dict["displacements"].values(), start=2):
-            _process_displacement(
-                gradient, lowername, molecule, displacement, n, ndisp, write_orbitals=False, **kwargs)
-
-        # Reset variables
-        for key, val in var_dict.items():
-            core.set_variable(key, val)
-
-        # Assemble Hessian from gradients
-        #   Final disp is undisp, so wfn has mol, G, H general to freq calc
-        H = driver_findif.assemble_hessian_from_gradients(findif_meta_dict, irrep)
-        wfn.set_hessian(core.Matrix.from_array(H))
-        wfn.set_gradient(G0)
-
-        # Explicitly set the current energy..
-        if isinstance(lowername, str) and lowername in procedures['energy']:
-            # this correctly filters out cbs fn and "hf/cc-pvtz"
-            # it probably incorrectly filters out mp5, but reconsider in DDD
-            core.set_variable(f"CURRENT HESSIAN", H)
-            core.set_variable(f"{lowername.upper()} TOTAL HESSIAN", H)
-            core.set_variable(f"{lowername.upper()} TOTAL GRADIENT", G0)
-            wfn.set_variable(f"{lowername.upper()} TOTAL HESSIAN", H)
-            wfn.set_variable(f"{lowername.upper()} TOTAL GRADIENT", G0)
-        core.set_variable('CURRENT ENERGY', findif_meta_dict["reference"]["energy"])
-        wfn.set_variable('CURRENT ENERGY', findif_meta_dict["reference"]["energy"])
-
-        core.set_global_option("PARENT_SYMMETRY", "")
-        optstash.restore()
-        optstash_conv.restore()
-
-    else:
-        core.print_out("""hessian() will perform frequency computation by finite difference of analytic energies.\n""")
-
-        # Set method-dependent scf convergence criteria (test on procedures['energy'] since that's guaranteed)
-        optstash.restore()
-        optstash_conv.restore()
-        optstash_conv = driver_util._set_convergence_criterion('energy', lowername, 10, 11, 10, 11, 10)
-
-        # Obtain list of displacements
-        findif_meta_dict = driver_findif.hessian_from_energies_geometries(molecule, irrep)
-
-        # Record undisplaced symmetry for projection of diplaced point groups
-        core.set_global_option("PARENT_SYMMETRY", molecule.schoenflies_symbol())
-
-        ndisp = len(findif_meta_dict["displacements"]) + 1
-
-        print(' %d displacements needed.' % ndisp)
-
-        wfn = _process_displacement(energy, lowername, molecule, findif_meta_dict["reference"], 1, ndisp,
-                                    **kwargs)
-        var_dict = core.variables()
-
-        for n, displacement in enumerate(findif_meta_dict["displacements"].values(), start=2):
-            _process_displacement(
-                energy, lowername, molecule, displacement, n, ndisp, write_orbitals=False, **kwargs)
-
-        # Reset variables
-        for key, val in var_dict.items():
-            core.set_variable(key, val)
-
-        # Assemble Hessian from energies
-        H = driver_findif.assemble_hessian_from_energies(findif_meta_dict, irrep)
-        wfn.set_hessian(core.Matrix.from_array(H))
-        wfn.set_gradient(G0)
-
-        # Explicitly set the current energy..
-        if isinstance(lowername, str) and lowername in procedures['energy']:
-            # this correctly filters out cbs fn and "hf/cc-pvtz"
-            # it probably incorrectly filters out mp5, but reconsider in DDD
-            core.set_variable(f"CURRENT HESSIAN", H)
-            core.set_variable(f"{lowername.upper()} TOTAL HESSIAN", H)
-            core.set_variable(f"{lowername.upper()} TOTAL GRADIENT", G0)
-            wfn.set_variable(f"{lowername.upper()} TOTAL HESSIAN", H)
-            wfn.set_variable(f"{lowername.upper()} TOTAL GRADIENT", G0)
-        core.set_variable('CURRENT ENERGY', findif_meta_dict["reference"]["energy"])
-        wfn.set_variable('CURRENT ENERGY', findif_meta_dict["reference"]["energy"])
-
-        core.set_global_option("PARENT_SYMMETRY", "")
-        optstash.restore()
-        optstash_conv.restore()
-
+    #if isinstance(lowername, str) and lowername in procedures['energy']:
+    #    # this correctly filters out cbs fn and "hf/cc-pvtz"
+    #    # it probably incorrectly filters out mp5, but reconsider in DDD
+    #    core.set_variable(f"CURRENT HESSIAN", H)
+    #    core.set_variable(f"{lowername.upper()} TOTAL HESSIAN", H)
+    #    core.set_variable(f"{lowername.upper()} TOTAL GRADIENT", G0)
+    #    wfn.set_variable(f"{lowername.upper()} TOTAL HESSIAN", H)
+    #    wfn.set_variable(f"{lowername.upper()} TOTAL GRADIENT", G0)
+    # TODO: check that current energy's being set to the right figure when this code is actually used
+    core.set_variable('CURRENT ENERGY', wfn.energy())
+    core.set_variable("CURRENT GRADIENT", G0)
     _hessian_write(wfn)
 
     if return_wfn:
@@ -1763,7 +1546,7 @@ def frequency(name, **kwargs):
 
     """
     kwargs = p4util.kwargs_lower(kwargs)
-    
+
     return_wfn = kwargs.pop('return_wfn', False)
 
     # Make sure the molecule the user provided is the active one
@@ -1774,7 +1557,12 @@ def frequency(name, **kwargs):
     H, wfn = hessian(name, return_wfn=True, molecule=molecule, **kwargs)
 
     # Project final frequencies?
-    translations_projection_sound, rotations_projection_sound = _energy_is_invariant(wfn.gradient())
+    if wfn.gradient():  # available for analytic and any findif including totally symmetric space
+        gradient_rms = wfn.gradient().rms()
+    else:
+        gradient_rms = 1  # choose to force non-projection of rotations
+    translations_projection_sound, rotations_projection_sound = _energy_is_invariant(gradient_rms)
+
     project_trans = kwargs.get('project_trans', translations_projection_sound)
     project_rot = kwargs.get('project_rot', rotations_projection_sound)
 
@@ -1854,8 +1642,14 @@ def vibanal_wfn(wfn: core.Wavefunction, hess: np.ndarray = None, irrep: Union[in
     m = np.asarray([mol.mass(at) for at in range(mol.natom())])
     irrep_labels = mol.irrep_labels()
 
-    vibinfo, vibtext = qcdb.vib.harmonic_analysis(
-        nmwhess, geom, m, wfn.basisset(), irrep_labels, dipder=dipder, project_trans=project_trans, project_rot=project_rot)
+    vibinfo, vibtext = qcdb.vib.harmonic_analysis(nmwhess,
+                                                  geom,
+                                                  m,
+                                                  wfn.basisset(),
+                                                  irrep_labels,
+                                                  dipder=dipder,
+                                                  project_trans=project_trans,
+                                                  project_rot=project_rot)
     vibrec.update({k: qca.json() for k, qca in vibinfo.items()})
 
     core.print_out(vibtext)
