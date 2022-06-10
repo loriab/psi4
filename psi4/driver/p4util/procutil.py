@@ -545,7 +545,7 @@ def state_to_atomicinput(
     method: str,
     basis: Optional[str] = None,
     molecule: Optional[core.Molecule] = None,
-    function_kwargs: Optional[Dict[str, Any]] = None) -> "AtomicInput":
+    function_kwargs: Optional[Dict[str, Any]] = None) -> AtomicInput:
     """Form a QCSchema for job input from the current state of |PSIfour| settings.
 
     Parameters
@@ -565,7 +565,7 @@ def state_to_atomicinput(
 
     Returns
     -------
-    AtomicInput
+    ~qcelemental.models.AtomicInput
         QCSchema instance including current keyword set and provenance.
 
     """
