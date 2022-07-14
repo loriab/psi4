@@ -2,6 +2,8 @@ import numpy as np
 from qcengine.programs.tests.standard_suite_ref import answer_hash, _std_suite, _std_generics
 
 
+# in-repo extensions for _std_suite above
+# * ideally empty. PR to QCEngine ASAP and empty this after QCEngine release.
 _std_suite_psi4_extension = [
     # <<<  CD-AE-CD  >>>
     {

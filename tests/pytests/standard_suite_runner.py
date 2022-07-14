@@ -9,6 +9,7 @@ from qcengine.programs.tests.standard_suite_contracts import (
     contractual_lccsd,
     contractual_ccsd,
     contractual_ccsd_prt_pr,
+    contractual_accsd_prt_pr,
     contractual_olccd,
     contractual_current,
     query_has_qcvar,
@@ -34,6 +35,8 @@ def runner_asserter(inp, subject, method, basis, tnm):
 
     if qc_module_in == "psi4-detci" and basis != "cc-pvdz":
         pytest.skip(f"basis {basis} too big for {qc_module_in}")
+    if qc_module_in == "psi4-ccenergy" and basis != "cc-pvdz" and method == "ccsd(t)" and reference == "uhf" and driver == "gradient" and inp["keywords"]["function_kwargs"]["dertype"] == 1:
+        pytest.skip(f"ccenergy uhf analytic gradients add 10m")
 
     # <<<  Reference Values  >>>
 
@@ -54,6 +57,7 @@ def runner_asserter(inp, subject, method, basis, tnm):
         "lccsd": cc_type,
         "ccsd": cc_type,
         "ccsd(t)": cc_type,
+        "a-ccsd(t)": cc_type,
         "olccd": cc_type,
     }
     corl_type = corl_natural_values[method]
@@ -164,6 +168,10 @@ def runner_asserter(inp, subject, method, basis, tnm):
             _asserter(asserter_args, contractual_args, contractual_mp2)
             _asserter(asserter_args, contractual_args, contractual_ccsd)
             _asserter(asserter_args, contractual_args, contractual_ccsd_prt_pr)
+        elif method == "a-ccsd(t)":
+            _asserter(asserter_args, contractual_args, contractual_mp2)
+            _asserter(asserter_args, contractual_args, contractual_ccsd)
+            _asserter(asserter_args, contractual_args, contractual_accsd_prt_pr)
         elif method == "olccd":
             _asserter(asserter_args, contractual_args, contractual_mp2)
             _asserter(asserter_args, contractual_args, contractual_olccd)
