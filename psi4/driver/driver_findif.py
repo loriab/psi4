@@ -143,10 +143,7 @@ from functools import partial
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union, TYPE_CHECKING
 
 import numpy as np
-try:
-    from pydantic.v1 import Field, validator
-except ImportError:
-    from pydantic import Field, validator
+from pydantic import Field, field_validator
 from qcelemental.models import DriverEnum, AtomicResult
 from qcelemental import constants
 
@@ -1150,7 +1147,8 @@ class FiniteDifferenceComputer(BaseComputer):
     computer: BaseComputer = AtomicComputer
     method: str
 
-    @validator('driver')
+    @field_validator('driver')
+    @classmethod
     def set_driver(cls, driver):
         egh = ['energy', 'gradient', 'hessian']
         if driver not in egh:
@@ -1158,7 +1156,8 @@ class FiniteDifferenceComputer(BaseComputer):
 
         return driver
 
-    @validator('molecule')
+    @field_validator('molecule')
+    @classmethod
     def set_molecule(cls, mol):
         mol.update_geometry()
         mol.fix_com(True)

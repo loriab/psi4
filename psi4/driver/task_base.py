@@ -38,10 +38,7 @@ import logging
 import pprint
 from typing import Any, Dict, Optional, Tuple, Union, TYPE_CHECKING
 
-try:
-    from pydantic.v1 import Field, validator
-except ImportError:
-    from pydantic import Field, validator
+from pydantic import ConfigDict, Field, field_validator
 import qcelemental as qcel
 from qcelemental.models import DriverEnum, AtomicInput, AtomicResult
 qcel.models.molecule.GEOMETRY_NOISE = 13  # need more precision in geometries for high-res findif
@@ -69,9 +66,10 @@ class BaseComputer(qcel.models.ProtoModel):
     def plan(self):
         pass
 
-    class Config(qcel.models.ProtoModel.Config):
-        extra = "allow"
-        allow_mutation = True
+    model_config = ConfigDict(
+        extra="allow",
+        frozen=False,
+    )
 
 
 class AtomicComputer(BaseComputer):
@@ -87,18 +85,18 @@ class AtomicComputer(BaseComputer):
     result: Any = Field(default_factory=dict, description=":py:class:`~qcelemental.models.AtomicResult` return.")
     result_id: Optional[str] = Field(None, description="The optional ID for the computation.")
 
-    class Config(qcel.models.ProtoModel.Config):
-        pass
-
-    @validator("basis")
+    @field_validator("basis")
+    @classmethod
     def set_basis(cls, basis):
         return basis.lower()
 
-    @validator("method")
+    @field_validator("method")
+    @classmethod
     def set_method(cls, method):
         return method.lower()
 
-    @validator("keywords")
+    @field_validator("keywords")
+    @classmethod
     def set_keywords(cls, keywords):
         return copy.deepcopy(keywords)
 
