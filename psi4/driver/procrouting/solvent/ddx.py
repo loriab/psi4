@@ -31,7 +31,7 @@ from qcelemental import constants
 from pkg_resources import parse_version
 
 from psi4 import core
-from psi4.driver.p4util.exceptions import ValidationError
+from ...p4util.exceptions import ValidationError
 
 import pyddx
 import pyddx.data
