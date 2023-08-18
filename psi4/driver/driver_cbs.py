@@ -150,7 +150,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECK
 import logging
 
 import numpy as np
-from pydantic import Field, field_validator
+from pydantic import field_validator
 from qcelemental.models import AtomicResult, DriverEnum
 
 from psi4 import core

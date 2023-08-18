@@ -28,7 +28,7 @@
 import numpy as np
 
 from qcelemental import constants
-from pkg_resources import parse_version
+from qcelemental.util import parse_version
 
 from psi4 import core
 from ...p4util.exceptions import ValidationError

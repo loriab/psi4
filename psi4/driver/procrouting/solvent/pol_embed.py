@@ -31,7 +31,7 @@ from tempfile import NamedTemporaryFile
 import numpy as np
 import cppe
 from qcelemental import constants
-from pkg_resources import parse_version
+from qcelemental.util import parse_version
 
 from psi4 import core
 from ...qcdb import libmintsbasisset
