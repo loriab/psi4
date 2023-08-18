@@ -1312,7 +1312,7 @@ class Molecule(LibmintsMolecule):
         if dashparam:
             resinp['keywords']['params_tweaks'] = dashparam
         jobrec = qcng.compute(resinp, 'dftd3', raise_error=True)
-        jobrec = jobrec.dict()
+        jobrec = jobrec.model_dump()
 
         # hack as not checking type GRAD
         for k, qca in jobrec['extras']['qcvars'].items():
@@ -1402,7 +1402,7 @@ class Molecule(LibmintsMolecule):
             resinp['keywords']['params_tweaks'] = dashparam
 
         jobrec = qcng.compute(resinp, 'dftd4', raise_error=True)
-        jobrec = jobrec.dict()
+        jobrec = jobrec.model_dump()
 
         # hack as not checking type GRAD
         for k, qca in jobrec['extras']['qcvars'].items():
@@ -1486,7 +1486,7 @@ class Molecule(LibmintsMolecule):
         except qcng.exceptions.ResourceError:
             jobrec = qcng.compute(resinp, 'gcp', raise_error=True)
 
-        jobrec = jobrec.dict()
+        jobrec = jobrec.model_dump()
 
         # hack (instead of checking dertype GRAD) to collect `(nat, 3)` ndarray of gradient if present
         for variable_name, qcv in jobrec['extras']['qcvars'].items():

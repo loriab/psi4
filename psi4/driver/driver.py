@@ -453,7 +453,7 @@ def energy(name, **kwargs):
     # Are we planning?
     plan = task_planner.task_planner("energy", lowername, molecule, **kwargs)
     logger.debug('ENERGY PLAN')
-    logger.debug(pp.pformat(plan.dict()))
+    logger.debug(pp.pformat(plan.model_dump()))
 
     if kwargs.get("return_plan", False):
         # Plan-only requested
@@ -602,7 +602,7 @@ def gradient(name, **kwargs):
     # Are we planning?
     plan = task_planner.task_planner("gradient", lowername, molecule, **kwargs)
     logger.debug('GRADIENT PLAN')
-    logger.debug(pp.pformat(plan.dict()))
+    logger.debug(pp.pformat(plan.model_dump()))
 
     if kwargs.get("return_plan", False):
         # Plan-only requested
@@ -761,7 +761,7 @@ def properties(*args, **kwargs):
     # Are we planning?
     plan = task_planner.task_planner("properties", lowername, molecule, **kwargs)
     logger.debug('PROPERTIES PLAN')
-    logger.debug(pp.pformat(plan.dict()))
+    logger.debug(pp.pformat(plan.model_dump()))
 
     if kwargs.get("return_plan", False):
         # Plan-only requested
@@ -1420,7 +1420,7 @@ def hessian(name, **kwargs):
     # Are we planning?
     plan = task_planner.task_planner("hessian", lowername, molecule, **kwargs)
     logger.debug('HESSIAN PLAN')
-    logger.debug(pp.pformat(plan.dict()))
+    logger.debug(pp.pformat(plan.model_dump()))
 
     if kwargs.get("return_plan", False):
         # Plan-only requested
@@ -1696,7 +1696,7 @@ def vibanal_wfn(
                                                   dipder=dipder,
                                                   project_trans=project_trans,
                                                   project_rot=project_rot)
-    vibrec.update({k: qca.json() for k, qca in vibinfo.items()})
+    vibrec.update({k: qca.model_dump_json() for k, qca in vibinfo.items()})
 
     core.print_out(vibtext)
     core.print_out(qcdb.vib.print_vibs(vibinfo, shortlong=True, normco='x', atom_lbl=symbols))
@@ -1717,7 +1717,7 @@ def vibanal_wfn(
             rotor_type=mol.rotor_type(),
             rot_const=np.asarray(mol.rotational_constants()),
             E0=core.variable('CURRENT ENERGY'))  # someday, wfn.energy()
-        vibrec.update({k: qca.json() for k, qca in therminfo.items()})
+        vibrec.update({k: qca.model_dump_json() for k, qca in therminfo.items()})
 
         core.set_variable("ZPVE", therminfo['ZPE_corr'].data)  # P::e THERMO
         core.set_variable("THERMAL ENERGY CORRECTION", therminfo['E_corr'].data)  # P::e THERMO
