@@ -41,7 +41,7 @@ from qcelemental.models import DriverEnum
 from . import p4util
 from .constants import pp
 from .task_base import AtomicComputer
-from .driver_findif import FiniteDifferenceComputer, FDComputerEnum
+from .driver_findif import FiniteDifferenceComputer
 from .driver_nbody import ManyBodyComputer
 from .driver_cbs import CompositeComputer, composite_procedures, cbs_text_parser
 from .driver_util import negotiate_derivative_type, negotiate_convergence_criterion
@@ -225,7 +225,7 @@ def task_planner(driver: DriverEnum, method: str, molecule: core.Molecule, **kwa
                                      **packet,
                                      mc_level_idx=mc_level_idx,
                                      findif_mode=dermode,
-                                     computer=CompositeComputer,
+                                     computer="composite",
                                      **cbsmeta,
                                      **current_findif_kwargs,
                                      **kwargs)
@@ -270,7 +270,7 @@ def task_planner(driver: DriverEnum, method: str, molecule: core.Molecule, **kwa
                 f'PLANNING FD(CBS):  dermode={dermode} packet={packet} findif_kw={current_findif_kwargs} kw={kwargs}')
             plan = FiniteDifferenceComputer(**packet,
                                             findif_mode=dermode,
-                                            computer=CompositeComputer,
+                                            computer="composite",
                                             **current_findif_kwargs,
                                             **kwargs)
             return plan
@@ -281,12 +281,12 @@ def task_planner(driver: DriverEnum, method: str, molecule: core.Molecule, **kwa
         convcrit = negotiate_convergence_criterion(dermode, method, return_optstash=False)
 
         if dermode[0] == dermode[1]:  # analytic
-            logger.info(f'PLANNING Atomic:  keywords={keywords}')
+            logger.info(f'PLANNING Atomic:  {packet=} {keywords=} {kwargs=}')
             return AtomicComputer(**packet, **kwargs)
         else:
             keywords.update(convcrit)
             logger.info(
-                f'PLANNING FD:  dermode={dermode} keywords={keywords} findif_kw={current_findif_kwargs} kw={kwargs}')
+                f'PLANNING FD:  findif_mode={dermode} {packet=} {keywords=} {current_findif_kwargs=} {kwargs=}')
             return FiniteDifferenceComputer(**packet,
                                             findif_mode=dermode,
                                             **current_findif_kwargs,
