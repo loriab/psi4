@@ -438,11 +438,11 @@ def energy(name, **kwargs):
     molecule.update_geometry()
 
     p4util.state_to_atomicinput(
-            driver="energy",
-            method=name,
-            basis=(core.get_global_option('BASIS') or kwargs.get('basis')),
-            molecule=molecule,
-            function_kwargs=kwargs,
+        driver="energy",
+        method=name,
+        basis=(core.get_global_option('BASIS') or kwargs.get('basis')),
+        molecule=molecule,
+        function_kwargs=kwargs,
     )
 
     ## Pre-planning interventions
@@ -590,6 +590,14 @@ def gradient(name, **kwargs):
     kwargs['findif_verbose'] = core.get_option("FINDIF", "PRINT")
     kwargs['findif_stencil_size'] = core.get_option("FINDIF", "POINTS")
     kwargs['findif_step_size'] = core.get_option("FINDIF", "DISP_SIZE")
+
+    p4util.state_to_atomicinput(
+        driver="gradient",
+        method=name,
+        basis=(core.get_global_option('BASIS') or kwargs.get('basis')),
+        molecule=molecule,
+        function_kwargs=kwargs,
+    )
 
     ## Pre-planning interventions
 
@@ -1409,6 +1417,14 @@ def hessian(name, **kwargs):
         irrep = driver_util.parse_cotton_irreps(irrep, molecule.schoenflies_symbol())
         irrep -= 1  # A1 irrep is externally 1, internally 0
     kwargs['findif_irrep'] = irrep
+
+    p4util.state_to_atomicinput(
+        driver="hessian",
+        method=name,
+        basis=(core.get_global_option('BASIS') or kwargs.get('basis')),
+        molecule=molecule,
+        function_kwargs=kwargs,
+    )
 
     ## Pre-planning interventions
 
