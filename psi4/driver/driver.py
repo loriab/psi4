@@ -444,50 +444,30 @@ def energy(name, **kwargs):
     if drop_qcsk:
         _data_path = Path(drop_qcsk).resolve() / "qcschema_instances"
         print(f"{_data_path=}")
-        
+
         atin = p4util.state_to_atomicinput(
-            driver="energy", 
-            method=name, 
+            driver="energy",
+            method=name,
             basis=(core.get_global_option('BASIS') or kwargs.get('basis')),
-            molecule=molecule, 
+            molecule=molecule,
             function_kwargs=kwargs
         )
         tnm = os.environ.get('PYTEST_CURRENT_TEST', "").split(':')[-1].split(' ')[0]
-        #schema_name = type(atin).__name__
-        #drop = (_data_path / schema_name / tnm).with_suffix(".json")
-        drop = (_data_path / tnm).with_suffix(".json")
+        schema_name = type(atin).__name__
+        drop = (_data_path / schema_name / tnm).with_suffix(".json")
+        drop.parent.mkdir(parents=True, exist_ok=True)
         pp = pprint.PrettyPrinter(width=120, compact=True, indent=2)
-        print(pp.pformat(json.loads(atin.json())))  # exclude_unset=True, exclude_none=True
+
+        job_number = len(list(drop.parent.glob(f"{tnm}*")))
+        drop = drop.with_stem(f"{tnm}_{job_number:03}")
+        print(f"{job_number=} {drop=}")
+
+
+        print(pp.pformat(json.loads(atin.json())))  # for eyes
         print(f"{tnm=}")
         with open(drop, "w") as fp:
             instance = json.loads(atin.json())
             json.dump(instance, fp, sort_keys=True, indent=2)  # for proper json
-            # fp.write(pp.pformat(instance))  # for eyes
-
-#    # test_AB
-#    test_names = glob(f"{path}/{test_name}*")
-#    if len(test_names) == 0:
-#        output_name = f"{test_name}_0"
-#    else:
-#        output_name = f"{test_name}_{len(test_names)}"
-
-#_data_path = Path(__file__).parent.resolve() / "qcschema_instances"
-#
-#
-#def drop_qcsk(instance, tnm: str, schema_name: str = None):
-#    if isinstance(instance, qcelemental.models.ProtoModel) and schema_name is None:
-#        schema_name = type(instance).__name__
-#    drop = (_data_path / schema_name / tnm).with_suffix(".json")
-#
-#    with open(drop, "w") as fp:
-#        if isinstance(instance, qcelemental.models.ProtoModel):
-#            # fp.write(instance.json(exclude_unset=True, exclude_none=True))  # works but file is one-line
-#            instance = json.loads(instance.json(exclude_unset=True, exclude_none=True))
-#        elif isinstance(instance, dict):
-#            pass
-#        else:
-#            raise TypeError
-#        json.dump(instance, fp, sort_keys=True, indent=2)
 
     ## Pre-planning interventions
 
