@@ -437,6 +437,58 @@ def energy(name, **kwargs):
     molecule = kwargs.pop('molecule', core.get_active_molecule())
     molecule.update_geometry()
 
+    import os
+    from pathlib import Path
+    import pprint
+    drop_qcsk = os.environ.get('PSI4_WRITE_QCSK')
+    if drop_qcsk:
+        _data_path = Path(drop_qcsk).resolve() / "qcschema_instances"
+        print(f"{_data_path=}")
+        
+        atin = p4util.state_to_atomicinput(
+            driver="energy", 
+            method=name, 
+            basis=(core.get_global_option('BASIS') or kwargs.get('basis')),
+            molecule=molecule, 
+            function_kwargs=kwargs
+        )
+        tnm = os.environ.get('PYTEST_CURRENT_TEST', "").split(':')[-1].split(' ')[0]
+        #schema_name = type(atin).__name__
+        #drop = (_data_path / schema_name / tnm).with_suffix(".json")
+        drop = (_data_path / tnm).with_suffix(".json")
+        pp = pprint.PrettyPrinter(width=120, compact=True, indent=2)
+        print(pp.pformat(json.loads(atin.json())))  # exclude_unset=True, exclude_none=True
+        print(f"{tnm=}")
+        with open(drop, "w") as fp:
+            instance = json.loads(atin.json())
+            json.dump(instance, fp, sort_keys=True, indent=2)  # for proper json
+            # fp.write(pp.pformat(instance))  # for eyes
+
+#    # test_AB
+#    test_names = glob(f"{path}/{test_name}*")
+#    if len(test_names) == 0:
+#        output_name = f"{test_name}_0"
+#    else:
+#        output_name = f"{test_name}_{len(test_names)}"
+
+#_data_path = Path(__file__).parent.resolve() / "qcschema_instances"
+#
+#
+#def drop_qcsk(instance, tnm: str, schema_name: str = None):
+#    if isinstance(instance, qcelemental.models.ProtoModel) and schema_name is None:
+#        schema_name = type(instance).__name__
+#    drop = (_data_path / schema_name / tnm).with_suffix(".json")
+#
+#    with open(drop, "w") as fp:
+#        if isinstance(instance, qcelemental.models.ProtoModel):
+#            # fp.write(instance.json(exclude_unset=True, exclude_none=True))  # works but file is one-line
+#            instance = json.loads(instance.json(exclude_unset=True, exclude_none=True))
+#        elif isinstance(instance, dict):
+#            pass
+#        else:
+#            raise TypeError
+#        json.dump(instance, fp, sort_keys=True, indent=2)
+
     ## Pre-planning interventions
 
     # * Trip on function or alias as name
