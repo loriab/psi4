@@ -46,9 +46,11 @@ __all__ = [
 ]
 
 import collections
+import json
 import os
 import warnings
 from contextlib import contextmanager
+from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Union
 
@@ -592,6 +594,9 @@ def state_to_atomicinput(
     ~qcelemental.models.AtomicInput
         QCSchema instance including current keyword set and provenance.
 
+        if PSI4_WRITE_QCSK environment variable is set and running through pytest,
+        the atomicinput will be written as a JSON file with name of the test case.
+
     """
     if molecule is None:
         molecule = core.get_active_molecule()
@@ -603,7 +608,7 @@ def state_to_atomicinput(
     kw_basis = keywords.pop("basis", None)
     basis = basis or kw_basis
 
-    resi = AtomicInput(
+    atin = AtomicInput(
          **{
             "driver": driver,
             "extras": {
@@ -618,7 +623,27 @@ def state_to_atomicinput(
             "provenance": provenance_stamp(__name__),
          })
 
-    return resi
+    drop_qcsk = os.environ.get("PSI4_WRITE_QCSK")
+    tnm = os.environ.get("PYTEST_CURRENT_TEST")
+    if drop_qcsk and tnm:
+        _data_path = Path(drop_qcsk).resolve() / "qcschema_instances"
+
+        # test name and drop path
+        tnm = tnm.split(':')[-1].split(' ')[0]
+        schema_name = type(atin).__name__
+        drop = (_data_path / schema_name / tnm).with_suffix(".json")
+        drop.parent.mkdir(parents=True, exist_ok=True)
+        job_number = len(list(drop.parent.glob(f"{tnm}*")))
+        drop = drop.with_stem(f"{tnm}_{job_number:03}")
+
+        # import pprint
+        # pp = pprint.PrettyPrinter(width=120, compact=True, indent=2)
+        # print(pp.pformat(json.loads(atin.json())))  # for eyes
+        with open(drop, "w") as fp:
+            instance = json.loads(atin.json())
+            json.dump(instance, fp, sort_keys=True, indent=2)  # for proper json
+
+    return atin
 
 
 def mat2arr(mat: core.Matrix) -> List[List[float]]:

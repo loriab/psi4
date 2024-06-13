@@ -437,37 +437,13 @@ def energy(name, **kwargs):
     molecule = kwargs.pop('molecule', core.get_active_molecule())
     molecule.update_geometry()
 
-    import os
-    from pathlib import Path
-    import pprint
-    drop_qcsk = os.environ.get('PSI4_WRITE_QCSK')
-    if drop_qcsk:
-        _data_path = Path(drop_qcsk).resolve() / "qcschema_instances"
-        print(f"{_data_path=}")
-
-        atin = p4util.state_to_atomicinput(
+    p4util.state_to_atomicinput(
             driver="energy",
             method=name,
             basis=(core.get_global_option('BASIS') or kwargs.get('basis')),
             molecule=molecule,
-            function_kwargs=kwargs
-        )
-        tnm = os.environ.get('PYTEST_CURRENT_TEST', "").split(':')[-1].split(' ')[0]
-        schema_name = type(atin).__name__
-        drop = (_data_path / schema_name / tnm).with_suffix(".json")
-        drop.parent.mkdir(parents=True, exist_ok=True)
-        pp = pprint.PrettyPrinter(width=120, compact=True, indent=2)
-
-        job_number = len(list(drop.parent.glob(f"{tnm}*")))
-        drop = drop.with_stem(f"{tnm}_{job_number:03}")
-        print(f"{job_number=} {drop=}")
-
-
-        print(pp.pformat(json.loads(atin.json())))  # for eyes
-        print(f"{tnm=}")
-        with open(drop, "w") as fp:
-            instance = json.loads(atin.json())
-            json.dump(instance, fp, sort_keys=True, indent=2)  # for proper json
+            function_kwargs=kwargs,
+    )
 
     ## Pre-planning interventions
 
