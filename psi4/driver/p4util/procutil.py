@@ -46,6 +46,7 @@ __all__ = [
 ]
 
 import collections
+import inspect
 import json
 import os
 import warnings
@@ -625,7 +626,8 @@ def state_to_atomicinput(
 
     drop_qcsk = os.environ.get("PSI4_WRITE_QCSK")
     tnm = os.environ.get("PYTEST_CURRENT_TEST")
-    if drop_qcsk and tnm:
+    subjob = inspect.currentframe().f_back.f_back.f_code.co_name == "run_json_qcschema"
+    if drop_qcsk and tnm and not subjob:
         _data_path = Path(drop_qcsk).resolve() / "qcschema_instances"
 
         # test name and drop path
