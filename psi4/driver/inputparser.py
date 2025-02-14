@@ -481,7 +481,8 @@ def process_external_command(matchobj):
     extern += '%sqmmm.populateExtern()\n' % (spaces)
     extern += '%s%s = qmmm.extern\n' % (spaces, name)
 
-    extern += '%score.set_global_option_python("EXTERN", extern)\n' % (spaces)
+    #extern += '%score.set_global_option_python("EXTERN", extern)\n' % (spaces)
+    extern += '%score.set_global_option_python("EXTERN", %s)\n' % (spaces, name)
 
     return extern
 

@@ -33,6 +33,7 @@
 #include "psi4/lib3index/denominator.h"
 #include "psi4/lib3index/dftensor.h"
 #include "psi4/lib3index/dfhelper.h"
+#include "psi4/lib3index/fitter.h"
 #include "psi4/libmints/molecule.h"
 #include "psi4/libmints/matrix.h"
 #include "psi4/libmints/vector.h"
@@ -129,6 +130,15 @@ void export_fock(py::module &m) {
         .def("form_QR_inverse", &FittingMetric::form_QR_inverse, "docstring")
         .def("form_eig_inverse", &FittingMetric::form_eig_inverse, "docstring")
         .def("form_full_inverse", &FittingMetric::form_full_inverse, "docstring");
+
+    // boost::noncopyable
+    py::class_<DFChargeFitter, std::shared_ptr<DFChargeFitter>>(m, "DFChargeFitter", "docstring")
+        .def(py::init<>())
+        .def("setPrimary", &DFChargeFitter::setPrimary, "docstring")
+        .def("setAuxiliary", &DFChargeFitter::setAuxiliary, "docstring")
+        .def("setD", &DFChargeFitter::setD, "docstring")
+        .def("d", &DFChargeFitter::d, "docstring")
+        .def("fit", &DFChargeFitter::fit, "docstring");
 
     py::class_<SOMCSCF, std::shared_ptr<SOMCSCF>>(m, "SOMCSCF", "docstring")
         // .def(init<std::shared_ptr<JK>, SharedMatrix, SharedMatrix >())

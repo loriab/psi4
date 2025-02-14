@@ -65,12 +65,12 @@ class Diffuse():
         resulting density.
 
         """
-        basisChanged = core.has_option_changed("BASIS")
-        ribasisChanged = core.has_option_changed("DF_BASIS_SCF")
-        scftypeChanged = core.has_option_changed("SCF_TYPE")
+        basisChanged = core.has_global_option_changed("BASIS")
+        ribasisChanged = core.has_option_changed('SCF', 'DF_BASIS_GUESS')
+        scftypeChanged = core.has_global_option_changed("SCF_TYPE")
 
-        basis = core.get_option("BASIS")
-        ribasis = core.get_option("DF_BASIS_SCF")
+        basis = core.get_global_option("BASIS")
+        ribasis = core.get_option("SCF", "DF_BASIS_SCF")
         scftype = core.get_global_option("SCF_TYPE")
 
         core.print_out("    => Diffuse SCF (Determines Da) <=\n\n")
@@ -90,12 +90,12 @@ class Diffuse():
         core.set_global_option("DF_BASIS_SCF", ribasis)
         core.set_global_option("SCF_TYPE", scftype)
 
-        if not basisChanged:
-            core.revoke_option_changed("BASIS")
-        if not ribasisChanged:
-            core.revoke_option_changed("DF_BASIS_SCF")
-        if not scftypeChanged:
-            core.revoke_option_changed("SCF_TYPE")
+#        if not basisChanged:
+#            core.revoke_option_changed("BASIS")
+#        if not ribasisChanged:
+#            core.revoke_option_changed("DF_BASIS_SCF")
+#        if not scftypeChanged:
+#            core.revoke_option_changed("SCF_TYPE")
 
     def fitGeneral(self):
         """Function to perform a general fit of diffuse charges
@@ -105,8 +105,14 @@ class Diffuse():
         core.print_out("    => Diffuse Charge Fitting (Determines da) <=\n\n")
         self.Da = self.wfn.Da()
         self.basis = self.wfn.basisset()
-        parser = core.Gaussian94BasisSetParser()
-        self.ribasis = core.BasisSet.construct(parser, self.molecule, "DF_BASIS_SCF")
+#        parser = core.Gaussian94BasisSetParser()
+#        self.ribasis = core.BasisSet.construct(parser, self.molecule, "DF_BASIS_SCF")
+
+        self.ribasis = core.BasisSet.build(self.molecule, "DF_BASIS_SCF",
+                                        core.get_option("SCF", "DF_BASIS_SCF"),
+                                        "JKFIT", core.get_global_option('BASIS'),
+                                        puream=self.basis.has_puream())
+#        wfn.set_basisset("DF_BASIS_SCF", aux_basis)
 
         fitter = core.DFChargeFitter()
         fitter.setPrimary(self.basis)
@@ -123,12 +129,12 @@ class Diffuse():
             extern.addCharge(self.molecule.Z(A), self.molecule.x(A), self.molecule.y(A), self.molecule.z(A))
 
 
-class QMMM():
-    """Hold charges and :py:class:`psi4.core.ExternalPotential`. Use :py:class:`psi4.driver.QMMMbohr` instead."""
-
-    def __init__(self):
-        raise UpgradeHelper(self.__class__.__name__, "QMMMbohr", 1.6, ' Replace object with a list of charges and locations in Bohr passed as keyword argument, e.g., `energy(..., external_potentials=[[0.5, [0, 0, 1]], [-0.5, [0, 0, -1]]])`.')
-
+#class QMMM():
+#    """Hold charges and :py:class:`psi4.core.ExternalPotential`. Use :py:class:`psi4.driver.QMMMbohr` instead."""
+#
+#    def __init__(self):
+#        raise UpgradeHelper(self.__class__.__name__, "QMMMbohr", 1.6, ' Replace object with a list of charges and locations in Bohr passed as keyword argument, e.g., `energy(..., external_potentials=[[0.5, [0, 0, 1]], [-0.5, [0, 0, -1]]])`.')
+#
 
 class QMMMbohr():
     """Hold charges and :py:class:`psi4.core.ExternalPotential`. To add external charges to a calculation, prefer
@@ -185,3 +191,5 @@ class QMMMbohr():
         # Diffuses
         for diffuse in self.diffuses:
             diffuse.populateExtern(self.extern)
+
+QMMM = QMMMbohr
