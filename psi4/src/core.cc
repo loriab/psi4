@@ -1431,9 +1431,9 @@ PYBIND11_MODULE(core, core) {
         // [](std::string fprefix) { psi_file_prefix = strdup(fprefix.c_str()); });  // doesn't always work
 
     // ??
-    // py::class_<Process::Environment>(core, "Environment")
+    // py::classh<Process::Environment>(core, "Environment")
     //        .def("__getitem__", [](const Process::Environment &p, const std::string key){ return p(key); });
 
-    // py::class_<Process>(core, "Process").
+    // py::classh<Process>(core, "Process").
     //        def_property_readonly_static("environment", [](py::object /*self*/) { return Process::environment; });
 }

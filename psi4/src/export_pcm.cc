@@ -39,7 +39,7 @@ using namespace pybind11::literals;
 #ifdef USING_PCMSolver
 
 void export_pcm(py::module& m) {
-    py::class_<PCM, std::shared_ptr<PCM>> pcm(m, "PCM", "Class interfacing with PCMSolver");
+    py::classh<PCM> pcm(m, "PCM", "Class interfacing with PCMSolver");
 
     py::enum_<PCM::CalcType>(pcm, "CalcType")
         .value("Total", PCM::CalcType::Total)
