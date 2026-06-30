@@ -1321,11 +1321,7 @@ std::string make_timer_id(const std::vector<std::string>& timer_path) {
     std::string timer_id;
     for (size_t i = 0; i < timer_path.size(); ++i) {
         if (i > 0) {
-<<<<<<< HEAD
             timer_id += kTimerPathSeparator;
-=======
-            timer_id += "§";
->>>>>>> 6192e688b (Change hierarchy path separator and generate timer json after psi4 runs)
         }
         timer_id += timer_path[i];
     }
