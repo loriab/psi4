@@ -52,7 +52,26 @@ namespace psi {
 CDJK::CDJK(std::shared_ptr<BasisSet> primary, Options& options, double cholesky_tolerance)
     : DiskDFJK(primary, primary, options), cholesky_tolerance_(cholesky_tolerance) {}
 
-void CDJK::initialize_JK_disk() { throw PSIEXCEPTION("Disk algorithm for CD JK not implemented."); }
+void CDJK::initialize_JK_disk() {
+    throw PSIEXCEPTION(
+        "CDJK::initialize_JK_disk(): internal error: the out-of-core path was selected even though CDJK::is_core() "
+        "guarantees the in-core subalgorithm. If you are seeing this, there is a bug!");
+}
+
+bool CDJK::is_core() {
+    // CD has no out-of-core algorithm, so the only meaningful subalgorithm is in-core.
+    if (subalgo_ != "AUTO" && subalgo_ != "INCORE") {
+        throw PSIEXCEPTION(
+            "Invalid SCF_SUBTYPE option in CDJK! Valid choices of SCF_SUBTYPE for Cholesky JK are AUTO and INCORE. "
+            "SCF_SUBTYPE=OUT_OF_CORE is not supported with SCF_TYPE=CD: the Cholesky JK algorithm is in-core only. Use"
+            " SCF_TYPE=DISK_DF if you need an out-of-core algorithm.");
+    }
+    // The true memory requirement cannot be known before the decomposition runs (ncholesky_ is determined by
+    // CHOLESKY_TOLERANCE), so the memory_estimate() gate used by DiskDFJK::is_core() is deliberately not applied here;
+    // a pessimistic estimate must not route CD onto the nonexistent disk path. The authoritative memory check lives in
+    // initialize_JK_core(), after ncholesky_ is known.
+    return true;
+}
 
 void CDJK::set_do_wK(const bool do_wK) {
     if (do_wK)
@@ -70,17 +89,12 @@ size_t CDJK::memory_estimate() {
 
 void CDJK::initialize_JK_core() {
     timer_on("CD: cholesky decomposition");
-    // TODO: Fix after the cderi_ deprecation is out in v1.11
-    // this should probably be
-    //      IntegralFactory factory(primary_, primary_, primary_, primary_);
-    //      const std::shared_ptr<TwoBodyAOInt> cderi = factory.eri();
-    // in the future. A TwoBodyAOInt object keeps the factory as a raw non-owning back-pointer (const IntegralFactory
-    // *integral_) and is therefore probably quite a dangerous thing if it ever outlives the IntegralFactory that was
-    // used for constructing the TwoBodyAOInt.
-    auto integral = std::make_shared<IntegralFactory>(primary_, primary_, primary_, primary_);
-    cderi_ = std::shared_ptr<TwoBodyAOInt>(integral->eri());
+    IntegralFactory factory(primary_, primary_, primary_, primary_);
+    // Integral engine for computing CD integrals.
+    // Note that this is shallow-const, the engine itself is mutable, only the shared_ptr isn't.
+    const std::shared_ptr<TwoBodyAOInt> cderi = factory.eri();
     
-    int ntri = cderi_->function_pairs().size();
+    int ntri = cderi->function_pairs().size();
     /// If user asks to read integrals from disk, just read them from disk.
     /// Qmn is only storing upper triangle.
     /// Ugur needs ncholesky_ in NAUX (SCF), but it can also be read from disk
@@ -97,7 +111,7 @@ void CDJK::initialize_JK_core() {
     }
 
     /// If user does not want to read from disk, recompute the cholesky integrals
-    auto Ch = std::make_shared<CholeskyERI>(cderi_, 0.0, cholesky_tolerance_,
+    auto Ch = std::make_shared<CholeskyERI>(cderi, 0.0, cholesky_tolerance_,
                                             memory_);
     Ch->choleskify();
     ncholesky_ = Ch->Q();
@@ -117,7 +131,7 @@ void CDJK::initialize_JK_core() {
 
     double** Qmnp = Qmn_->pointer();
 
-    const std::vector<long int>& schwarz_fun_pairs = cderi_->function_pairs_to_dense();
+    const std::vector<long int>& schwarz_fun_pairs = cderi->function_pairs_to_dense();
 
     timer_on("CD: schwarz");
     for (size_t mu = 0; mu < nbf; mu++) {

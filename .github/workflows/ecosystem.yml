@@ -151,7 +151,7 @@ jobs:
 
       # fetch-depth: 0 gets git history so Psi4 version is computable
     - name: Checkout Psi4
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
 
@@ -216,11 +216,11 @@ jobs:
         fi
         if [[ "${{ runner.os }}" == "macOS" && "${{ matrix.cfg.python-version }}" == "3.14" ]]; then
           :
-          sed -E -i.bak "s;- qcfractal;#- qcfractal;g" env_p4build.yaml
+          # sed -E -i.bak "s;- qcfractal;#- qcfractal;g" env_p4build.yaml
         fi
         if [[ "${{ runner.os }}" != "macOS" && "${{ matrix.cfg.python-version }}" == "3.14" ]]; then
           :
-          sed -i "s;- qcfractal;#- qcfractal;g" env_p4build.yaml
+          # sed -i "s;- qcfractal;#- qcfractal;g" env_p4build.yaml
         fi
         if [[ "${{ runner.os }}" == "macOS" && "${{ matrix.cfg.label }}" == "Conda Clang (M-Intel)" ]]; then
           :
@@ -340,7 +340,7 @@ jobs:
 
     - name: Special Config - Download MolSSI/QCFractal Repo
       if: runner.os == 'Linux'
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         repository: MolSSI/QCFractal
         path: qca
@@ -455,6 +455,26 @@ jobs:
       run: |
         conda install conda-tree -c conda-forge
         conda-tree deptree
+
+    - name: dlopen -- Remove Addons
+      if: matrix.cfg.python-version == '3.14' && runner.os != 'Windows'
+      run: conda remove qcmanybody --force -y
+
+    - name: dlopen -- Runtime Conda environment
+      if: matrix.cfg.python-version == '3.14' && runner.os != 'Windows'
+      working-directory: ./objdir
+      run: |
+        conda info
+        conda list
+        PYTHONPATH=stage/lib python -c "import psi4; print(psi4.__file__)"
+
+    - name: dlopen -- Test Addons with Pytest
+      if: matrix.cfg.python-version == '3.14' && runner.os != 'Windows'
+      working-directory: ./objdir
+      run: |
+        export PYTHONPATH=stage/lib
+        pytest --cache-clear -v -rws --color yes -n auto -m qcmanybody stage/lib/psi4/tests/
+        pytest --cache-clear -v -rws --color yes -n auto -k missing stage/lib/psi4/tests/
 
 # Notes
 # -----

@@ -394,6 +394,7 @@ class PSI_API JK {
     virtual bool C1() const = 0;
     virtual std::string name() = 0;
     // TODO: investigate if JK::memory_estimate and all of its derived variants could be made const
+    // Probably requires refactoring DFHelper and MemDFJK first.
     virtual size_t memory_estimate() = 0;
 
     // => Knobs <= //
@@ -955,7 +956,13 @@ class PSI_API DiskDFJK : public JK {
     /// Common initialization
     void common_init();
 
-    bool is_core();
+    /// @brief Determine if we should perform the JK build in-memory (aka. in-core), considering the amount of memory
+    /// required vs. available, and honoring SCF_SUBTYPE. If no, an altarnative, disk-based subalgorithm may be used.
+    /// Virtual so subclasses with a restricted set of subalgorithms (e.g. CDJK, which has no out-of-core path)
+    /// participate in the decision made by preiterations() and iaia().
+    /// @return True if the JK build is to proceed in-memory, false if disk-IO is required.
+    virtual bool is_core();
+
     size_t memory_temp() const;
     int max_rows() const;
     int max_nocc() const;
@@ -1062,18 +1069,18 @@ class PSI_API CDJK : public DiskDFJK {
     std::string name() override { return "CDJK"; }
     size_t memory_estimate() override;
 
-    /// integral engine for computing CD integrals
-    PSI_DEPRECATED(
-        "CDJK::cderi_ is planned to be moved inside CDJK::initialize_JK_core. Unless someone speaks up, 1.11 may be "
-        "the last release to have it.")
-    std::shared_ptr<TwoBodyAOInt> cderi_;
-
     // => Required Algorithm-Specific Methods <= //
 
-    virtual bool is_core() { return true; }
+    
+    /// @brief CD has no out-of-core algorithm: validates SCF_SUBTYPE, then forces in-core.
+    /// @return Always true.
+    bool is_core() override;
 
     // => J and K <= //
     void initialize_JK_core() override;
+
+    /// @brief Unreachable by construction: CDJK::is_core() either returns true or throws, so DiskDFJK::preiterations()
+    /// can never select the disk path for a CDJK object.
     void initialize_JK_disk() override;
     void manage_JK_core() override;
 

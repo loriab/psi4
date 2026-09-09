@@ -140,7 +140,7 @@ if(${ENABLE_libefp})
     #list(APPEND _addons ${_loc})
     message(STATUS "${Cyan}Using pylibefp${ColourReset}: ${_loc} (version ${pylibefp_VERSION})")
 else()
-    message(STATUS "Disabled libefp ${libefp_DIR} ${pylibefp_DIR}")
+    message(STATUS "Disabled libefp ${libefp_DIR} ${pylibefp_DIR} (deferrable to runtime)")
 endif()
 
 if(${ENABLE_Einsums})
@@ -183,7 +183,7 @@ if(${ENABLE_gdma})
     get_property(_loc TARGET gdma::pygdma PROPERTY LOCATION)
     message(STATUS "${Cyan}Found gdma${ColourReset}: ${_loc} (version ${gdma_VERSION})")
 else()
-    message(STATUS "Disabled gdma ${gdma_DIR}")
+    message(STATUS "Disabled gdma ${gdma_DIR} (deferrable to runtime)")
 endif()
 
 find_package(Libint2 2.8.1 CONFIG REQUIRED  # edit in codedeps
@@ -209,7 +209,7 @@ if(${ENABLE_mdi})
     list(APPEND _addons ${_loc})
     message(STATUS "${Cyan}Using mdi${ColourReset}: ${_loc} (version ${mdi_VERSION})")
 else()
-    message(STATUS "Disabled MDI ${mdi_DIR}")
+    message(STATUS "Disabled MDI ${mdi_DIR} (deferrable to runtime)")
 endif ()
 
 if(${ENABLE_OpenOrbitalOptimizer})
@@ -392,8 +392,6 @@ install(
     PATTERN "__pycache__" EXCLUDE
     PATTERN "*pyc" EXCLUDE
     # below place extra files the ctests-run-as-pytests need
-    PATTERN "adcc/formaldehyde-pe-adc1/fa_6w.pot"
-    PATTERN "adcc/formaldehyde-pe-adc2/fa_6w.pot"
     PATTERN "ci-property/grid.dat"
     PATTERN "scf-property/grid.dat"
     PATTERN "mp2-property/grid.dat"
