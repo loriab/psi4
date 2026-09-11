@@ -34,6 +34,10 @@
 
 #include <limits>
 
+#ifdef USING_LAPACK_MKL
+#include <mkl.h>
+#endif
+
 #include "psi4/psifiles.h"
 #include "psi4/psi4-dec.h"
 #include "psi4/physconst.h"
@@ -1872,18 +1876,32 @@ class MBISAnderson {
         }
         rhs[n_ + ncols] = sqrt_ridge;
 
+        // The problem is tall and extremely thin -- about 550 x 5 -- so threading it buys nothing
+        // and costs reproducibility: a threaded QR picks its reduction order at run time, which
+        // perturbs the mixing coefficients between otherwise identical runs. Because the iteration
+        // stops on a threshold, that perturbation lands in the converged answer (measured: 5.8e-13
+        // on the charges of a 109-atom case, against 2.7e-15 with acceleration switched off).
+        // Pinning the solve to one thread makes it deterministic and is not slower at this size.
+#ifdef USING_LAPACK_MKL
+        const int mkl_threads_on_entry = mkl_get_max_threads();
+        mkl_set_num_threads(1);
+#endif
         std::vector<int> jpvt(ncols, 0);
         int rank = 0;
         double work_query = 0.0;
         const double rcond = std::numeric_limits<double>::epsilon() * std::max(nrows, ncols);
         int info = C_DGELSY(nrows, ncols, 1, A.data(), nrows, rhs.data(), ldb, jpvt.data(), rcond, &rank,
                             &work_query, -1);
-        if (info != 0 || !std::isfinite(work_query)) return g;
         const int lwork = std::max(1, static_cast<int>(work_query));
         std::vector<double> work(lwork);
-        std::fill(jpvt.begin(), jpvt.end(), 0);
-        info = C_DGELSY(nrows, ncols, 1, A.data(), nrows, rhs.data(), ldb, jpvt.data(), rcond, &rank, work.data(),
-                        lwork);
+        if (info == 0 && std::isfinite(work_query)) {
+            std::fill(jpvt.begin(), jpvt.end(), 0);
+            info = C_DGELSY(nrows, ncols, 1, A.data(), nrows, rhs.data(), ldb, jpvt.data(), rcond, &rank, work.data(),
+                            lwork);
+        }
+#ifdef USING_LAPACK_MKL
+        mkl_set_num_threads(mkl_threads_on_entry);
+#endif
         if (info != 0 || rank != ncols) return g;
 
         std::vector<double> c(m);
