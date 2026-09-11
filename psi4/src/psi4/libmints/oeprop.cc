@@ -2228,14 +2228,21 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
             // single contiguous batch instead of num_atoms batches of one to five.
             std::vector<double> bcoef, brate, barg, bval;
             std::vector<int> bglob, bstart;
+            // Accumulate into thread-local buffers and flush into the chunk slot at the end. The
+            // arithmetic order is still fixed by the chunk, so the result stays deterministic, but
+            // the hot accumulator stays in this thread's cache instead of living in a shared array.
+            std::vector<double> tls_n(total_shells), tls_s(total_shells), tls_d(num_atoms);
 
             // Chunks vary in surviving-atom count, so hand them out dynamically. Each chunk covers a
             // fixed contiguous range of blocks and owns its reduction buffers.
 #pragma omp for schedule(dynamic, 1)
             for (size_t chunk = 0; chunk < n_chunks; chunk++) {
-                double* loc_n = chunk_n.data() + chunk * total_shells;
-                double* loc_s = chunk_s.data() + chunk * total_shells;
-                double* loc_d = chunk_d.data() + chunk * num_atoms;
+                double* loc_n = tls_n.data();
+                double* loc_s = tls_s.data();
+                double* loc_d = tls_d.data();
+                std::fill(tls_n.begin(), tls_n.end(), 0.0);
+                std::fill(tls_s.begin(), tls_s.end(), 0.0);
+                std::fill(tls_d.begin(), tls_d.end(), 0.0);
                 const size_t block_begin = n_blocks * chunk / n_chunks;
                 const size_t block_end = n_blocks * (chunk + 1) / n_chunks;
                 for (size_t b = block_begin; b < block_end; b++) {
@@ -2315,6 +2322,9 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
                         rho_0_points[point] = rho_0;
                     }
                 }
+                std::copy(tls_n.begin(), tls_n.end(), chunk_n.begin() + chunk * total_shells);
+                std::copy(tls_s.begin(), tls_s.end(), chunk_s.begin() + chunk * total_shells);
+                std::copy(tls_d.begin(), tls_d.end(), chunk_d.begin() + chunk * num_atoms);
             }
         }
 
