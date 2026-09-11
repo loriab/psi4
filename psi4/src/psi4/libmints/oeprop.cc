@@ -1836,8 +1836,8 @@ static inline void mbis_exp_batch(const double* __restrict arg, double* __restri
  *  - N and sigma are strictly positive, and a negative sigma would make exp(-r/sigma) diverge. The
  *    mixing is therefore done on log(N), log(sigma), so every combination is positive by
  *    construction, whatever coefficients the least-squares returns.
- *  - The normal equations are Tikhonov-regularised. Nearly-parallel residual histories are the
- *    usual source of the huge coefficients that produce a wild extrapolation.
+ *  - The residual least-squares problem is Tikhonov-regularised. Nearly-parallel residual histories
+ *    are the usual source of the huge coefficients that produce a wild extrapolation.
  *  - The extrapolation is rejected outright if the mixing coefficients grow past `kMaxCoefSum`,
  *    if the least-squares is singular, or if the result is not finite. Acceleration is never
  *    allowed to be worse than doing nothing.
@@ -1845,7 +1845,7 @@ static inline void mbis_exp_batch(const double* __restrict arg, double* __restri
  *    step made it worse, which falls back to plain Picard until the history rebuilds.
  */
 class MBISAnderson {
-    static constexpr double kRidge = 1.0e-12;    // relative Tikhonov shift on the normal equations
+    static constexpr double kRidge = 1.0e-12;    // relative Tikhonov penalty on the mixing coefficients
     static constexpr double kMaxCoefSum = 20.0;  // reject extrapolations that reach this far out
 
     size_t n_;                                  // length of the parameter vector
@@ -1870,50 +1870,57 @@ class MBISAnderson {
         const size_t m = xs_.size();
         if (m < 2) return g;  // nothing to extrapolate from yet
 
-        // Minimise ||sum_i c_i f_i|| subject to sum_i c_i = 1, via the bordered normal equations.
-        const size_t dim = m + 1;
-        std::vector<double> A(dim * dim, 0.0), b(dim, 0.0);
+        // Minimise ||sum_i c_i f_i|| subject to sum_i c_i = 1. Eliminate the last coefficient,
+        // c_last = 1 - sum_i alpha_i, and solve the resulting least-squares problem directly. This
+        // avoids squaring the condition number in normal equations and delegates rank decisions to
+        // LAPACK's pivoted QR implementation.
+        const int ncols = static_cast<int>(m - 1);
+        const int nrows = static_cast<int>(n_) + static_cast<int>(m);
+        const int ldb = std::max(nrows, ncols);
         double maxdiag = 0.0;
         for (size_t i = 0; i < m; i++) {
-            for (size_t j = 0; j < m; j++) {
-                double dot = 0.0;
-                for (size_t k = 0; k < n_; k++) dot += fs_[i][k] * fs_[j][k];
-                A[i * dim + j] = dot;
-            }
-            maxdiag = std::max(maxdiag, A[i * dim + i]);
-            A[i * dim + m] = -1.0;
-            A[m * dim + i] = -1.0;
+            double diagonal = 0.0;
+            for (size_t k = 0; k < n_; k++) diagonal += fs_[i][k] * fs_[i][k];
+            maxdiag = std::max(maxdiag, diagonal);
         }
-        for (size_t i = 0; i < m; i++) A[i * dim + i] += kRidge * maxdiag;
-        b[m] = -1.0;
+        if (!(maxdiag > 0.0) || !std::isfinite(maxdiag)) return g;
 
-        // Gauss-Jordan with partial pivoting.
-        std::vector<double> c(b);
-        bool ok = true;
-        for (size_t col = 0; col < dim && ok; col++) {
-            size_t piv = col;
-            for (size_t r = col + 1; r < dim; r++)
-                if (std::fabs(A[r * dim + col]) > std::fabs(A[piv * dim + col])) piv = r;
-            if (std::fabs(A[piv * dim + col]) < 1.0e-14) {
-                ok = false;
-                break;
-            }
-            if (piv != col) {
-                for (size_t k = 0; k < dim; k++) std::swap(A[col * dim + k], A[piv * dim + k]);
-                std::swap(c[col], c[piv]);
-            }
-            const double d = A[col * dim + col];
-            for (size_t k = 0; k < dim; k++) A[col * dim + k] /= d;
-            c[col] /= d;
-            for (size_t r = 0; r < dim; r++) {
-                if (r == col) continue;
-                const double factor = A[r * dim + col];
-                if (factor == 0.0) continue;
-                for (size_t k = 0; k < dim; k++) A[r * dim + k] -= factor * A[col * dim + k];
-                c[r] -= factor * c[col];
-            }
+        // DGELSY expects column-major storage. The first n_ rows hold f_i - f_last; the remaining
+        // rows express sqrt(lambda) * ||c||, including c_last = 1 - sum_i alpha_i.
+        std::vector<double> A(static_cast<size_t>(nrows) * ncols, 0.0), rhs(ldb, 0.0);
+        const auto& f_last = fs_.back();
+        for (size_t k = 0; k < n_; k++) rhs[k] = -f_last[k];
+        for (int i = 0; i < ncols; i++) {
+            for (size_t k = 0; k < n_; k++) A[static_cast<size_t>(i) * nrows + k] = fs_[i][k] - f_last[k];
         }
-        if (!ok) return g;
+        const double sqrt_ridge = std::sqrt(kRidge * maxdiag);
+        for (int i = 0; i < ncols; i++) {
+            A[static_cast<size_t>(i) * nrows + n_ + i] = sqrt_ridge;
+            A[static_cast<size_t>(i) * nrows + n_ + ncols] = sqrt_ridge;
+        }
+        rhs[n_ + ncols] = sqrt_ridge;
+
+        std::vector<int> jpvt(ncols, 0);
+        int rank = 0;
+        double work_query = 0.0;
+        const double rcond = std::numeric_limits<double>::epsilon() * std::max(nrows, ncols);
+        int info = C_DGELSY(nrows, ncols, 1, A.data(), nrows, rhs.data(), ldb, jpvt.data(), rcond, &rank,
+                            &work_query, -1);
+        if (info != 0 || !std::isfinite(work_query)) return g;
+        const int lwork = std::max(1, static_cast<int>(work_query));
+        std::vector<double> work(lwork);
+        std::fill(jpvt.begin(), jpvt.end(), 0);
+        info = C_DGELSY(nrows, ncols, 1, A.data(), nrows, rhs.data(), ldb, jpvt.data(), rcond, &rank, work.data(),
+                        lwork);
+        if (info != 0 || rank != ncols) return g;
+
+        std::vector<double> c(m);
+        double alpha_sum = 0.0;
+        for (int i = 0; i < ncols; i++) {
+            c[i] = rhs[i];
+            alpha_sum += rhs[i];
+        }
+        c.back() = 1.0 - alpha_sum;
 
         // sum_i c_i == 1 by construction, so sum_i |c_i| measures how far outside the history the
         // extrapolation reaches. Large values are the signature of a step about to go wild.
