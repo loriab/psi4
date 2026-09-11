@@ -2123,9 +2123,19 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
     std::vector<int> mA(num_atoms);
     for (int atom = 0; atom < num_atoms; atom++) {
 
-        // MBIS is incompatible with ECPs: requires all-electron density
+        // MBIS needs an all-electron density, so an atom whose nuclear charge does not match its
+        // element is out of scope. Two quite different things land here, and they need different
+        // messages: an ECP replaces some of the electrons (0 < Z < true Z), whereas a ghost atom
+        // has no nucleus and no electrons at all (Z == 0), and telling someone doing a
+        // counterpoise correction that their ghost is an ECP sends them somewhere useless.
         int n_valence_electrons = static_cast<int>(mol->Z(atom));
         int true_atomic_num = static_cast<int>(mol->true_atomic_number(atom));
+        if (n_valence_electrons == 0) {
+            throw PSIEXCEPTION("MBIS does not support ghost atoms. Atom " + std::to_string(atom + 1) + " (" +
+                               mol->symbol(atom) +
+                               ") carries basis functions but no electrons, so it has no pro-atom to fit. Run MBIS on "
+                               "the molecule without ghosts.");
+        }
         if (n_valence_electrons != true_atomic_num) {
             throw PSIEXCEPTION("MBIS incompatible with ECP. ECP detected on atom " + std::to_string(atom + 1) + " (" +
                                mol->symbol(atom) + "). Use all-electron basis or reconstruct density with denspart.");
