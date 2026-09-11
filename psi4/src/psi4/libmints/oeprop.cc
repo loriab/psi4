@@ -2007,6 +2007,7 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
     // Block extents, used for the distance screening in the stockholder sweep below.
     const size_t n_blocks = blocks.size();
     std::vector<size_t> block_offset(n_blocks, 0), block_size(n_blocks, 0);
+    std::vector<double> block_cx(n_blocks), block_cy(n_blocks), block_cz(n_blocks), block_R(n_blocks);
 
     // Coordinates, weights, and rho (molecular electron density) at each grid point
     std::vector<double> x_points(total_points, 0.0);
@@ -2045,6 +2046,11 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
 
         block_offset[b] = running_points;
         block_size[b] = num_points;
+        const Vector3 block_center = block->center();
+        block_cx[b] = block_center[0];
+        block_cy[b] = block_center[1];
+        block_cz[b] = block_center[2];
+        block_R[b] = block->radius();
         running_points += num_points;
     }
     timer_off("MBIS: grid density");
@@ -2150,26 +2156,6 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
             shell_rate[s] = -1.0 / S[s];
         }
     };
-
-    // Bounding sphere per grid block. cubature.h computes one internally but does not expose it,
-    // and recomputing here is one pass over the grid, so this stays local to MBIS.
-    std::vector<double> block_cx(n_blocks), block_cy(n_blocks), block_cz(n_blocks), block_R(n_blocks, 0.0);
-    for (size_t b = 0; b < n_blocks; b++) {
-        const size_t off = block_offset[b], np = block_size[b];
-        double cx = 0.0, cy = 0.0, cz = 0.0;
-        for (size_t i = 0; i < np; i++) {
-            cx += x_points[off + i];
-            cy += y_points[off + i];
-            cz += z_points[off + i];
-        }
-        cx /= np; cy /= np; cz /= np;
-        double R2 = 0.0;
-        for (size_t i = 0; i < np; i++) {
-            const double dx = x_points[off + i] - cx, dy = y_points[off + i] - cy, dz = z_points[off + i] - cz;
-            R2 = std::max(R2, dx * dx + dy * dy + dz * dz);
-        }
-        block_cx[b] = cx; block_cy[b] = cy; block_cz[b] = cz; block_R[b] = std::sqrt(R2);
-    }
 
     // Distance screening. The pro-atom density falls off as exp(-r/sigma) with sigma ~ 0.3-1 bohr,
     // so beyond a few tens of bohr an atom's contribution to a grid point is far below any
