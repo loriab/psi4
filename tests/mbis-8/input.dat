@@ -1,4 +1,4 @@
-#! MBIS on NaCl: Anderson acceleration must not change the fixed point
+#! MBIS guards: Anderson must not change the fixed point (NaCl), and ghosts must say so
 #
 # Anderson mixing is a convergence accelerator, so switching it off must reach the same
 # stockholder fixed point, only more slowly. NaCl is the case that proves this is not automatic:
@@ -72,3 +72,30 @@ for label in ("anderson", "picard"):                                            
                      "MBIS Charges (%s)" % label)                                          #TEST
     compare_matrices(vwidths_ref, psi4.Matrix.from_array(results[label]["vwidths"]), 5,    #TEST
                      "MBIS Valence Widths (%s)" % label)                                   #TEST
+
+
+# A ghost atom carries basis functions but no electrons, so Z == 0 while its element says
+# otherwise -- the same inequality an ECP trips. Both used to be reported as "ECP detected",
+# which sends anyone doing a counterpoise correction after an all-electron basis they do not
+# need. Pin the two apart: the ghost must be named as a ghost, and must not be called an ECP.
+ghosted = psi4.geometry("""
+0 1
+Ne 0.00 0.00 0.00
+--
+@Ne 0.00 0.00 3.00
+symmetry c1
+no_reorient
+no_com
+""")
+
+e_gh, wfn_gh = energy('hf/cc-pvdz', return_wfn=True, molecule=ghosted)
+ghost_error = ""
+try:
+    oeprop(wfn_gh, 'MBIS_CHARGES', title='ghost')
+except RuntimeError as exc:
+    ghost_error = str(exc)
+
+compare(True, "does not support ghost atoms" in ghost_error,                               #TEST
+        "ghost atom is named as a ghost")                                                  #TEST
+compare(True, "ECP" not in ghost_error,                                                    #TEST
+        "ghost atom is not misreported as an ECP")                                         #TEST
