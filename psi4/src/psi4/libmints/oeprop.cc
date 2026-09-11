@@ -1947,6 +1947,25 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
     int num_atoms = mol->natom();
     size_t total_points = grid->npoints();
 
+    // The pro-atom density array below is one double per (grid point, atom), and it is the one
+    // allocation here large enough to fail. Both factors grow with the molecule -- the grid has
+    // more points and each point carries more atoms -- so it is quadratic in system size, and the
+    // failure would otherwise arrive as a bare std::bad_alloc from deep inside a property
+    // calculation that has already paid for an SCF. Check it against the memory the user actually
+    // gave Psi4, before the grid density evaluation rather than after, and say what to do about it.
+    const size_t mbis_doubles = (static_cast<size_t>(num_atoms) + 7) * total_points;
+    const double mbis_gib = static_cast<double>(mbis_doubles) * sizeof(double) / (1024.0 * 1024.0 * 1024.0);
+    const double avail_gib = static_cast<double>(Process::environment.get_memory()) / (1024.0 * 1024.0 * 1024.0);
+    if (print_output) outfile->Printf("  MBIS Memory: needs %.3f GiB; user supplied %.3f GiB.\n\n", mbis_gib, avail_gib);
+    if (mbis_gib > avail_gib) {
+        throw PSIEXCEPTION(
+            "MBIS needs " + std::to_string(mbis_gib) + " GiB for its grid arrays but only " +
+            std::to_string(avail_gib) +
+            " GiB is available. The cost is (natom + 7) doubles per grid point, so either raise the "
+            "memory given to Psi4, or shrink the grid with the mbis_radial_points and "
+            "mbis_spherical_points options.");
+    }
+
     size_t max_points = 0;
     size_t max_nbf = 0;
 
@@ -2110,6 +2129,7 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
     // atoms of one point together, so this layout keeps those writes contiguous. Only the previous
     // iteration's values are needed (for the convergence test), so this is the single large array
     // MBIS now holds -- distances, displacements and the per-atom density are all recomputed.
+    // (Its size was checked against the available memory above, before the grid density pass.)
     timer_on("MBIS: alloc");
     std::vector<double> rho_a_0_points(static_cast<size_t>(num_atoms) * total_points, 0.0);
     timer_off("MBIS: alloc");
