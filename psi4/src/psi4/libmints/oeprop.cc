@@ -30,8 +30,9 @@
 #include <omp.h>
 #endif
 
+#include <bit>
+#include <cassert>
 #include <cstdint>
-#include <cstring>
 #include <limits>
 
 #include "psi4/psifiles.h"
@@ -1786,17 +1787,22 @@ const std::vector<std::tuple<double, double>>& get_mbis_params(int atomic_num) {
  * is pure arithmetic and so vectorises under plain -O3 -march=native. Measured at 1.07 ulp against
  * libm over the argument range MBIS uses, and about 4x its throughput.
  *
- * Arguments are always <= 0 here (rate < 0, r >= 0). Anything below -700 underflows to
+ * Arguments are always finite and <= 0 here (rate < 0, r >= 0). Anything below -700 underflows to
  * ~1e-304 rather than to exactly zero; those terms are ~300 orders of magnitude below the
  * densities they are summed into, and the screening has already discarded the atoms where this
- * could arise.
+ * could arise. Building 2^k from its exponent bits requires an IEEE-754 binary64 double; state that
+ * contract explicitly instead of silently relying on it through a memcpy.
  */
 static inline void mbis_exp_batch(const double* __restrict arg, double* __restrict out, int n) {
+    static_assert(sizeof(double) == sizeof(std::uint64_t));
+    static_assert(std::numeric_limits<double>::is_iec559 && std::numeric_limits<double>::radix == 2 &&
+                  std::numeric_limits<double>::digits == 53 && std::numeric_limits<double>::max_exponent == 1024);
     constexpr double LOG2E = 1.4426950408889634074;
     constexpr double LN2_HI = 6.93147180369123816490e-01;
     constexpr double LN2_LO = 1.90821492927058770002e-10;
 #pragma omp simd
     for (int k = 0; k < n; k++) {
+        assert(std::isfinite(arg[k]) && arg[k] <= 0.0);
         const double x = arg[k] < -700.0 ? -700.0 : arg[k];
         const double kf = std::nearbyint(x * LOG2E);
         const double f = (x - kf * LN2_HI) - kf * LN2_LO;
@@ -1814,10 +1820,8 @@ static inline void mbis_exp_batch(const double* __restrict arg, double* __restri
         p = 0.5 + f * p;
         p = 1.0 + f * p;
         p = 1.0 + f * p;
-        const std::int64_t bits = (static_cast<std::int64_t>(kf) + 1023) << 52;
-        double scale;
-        std::memcpy(&scale, &bits, sizeof(double));
-        out[k] = p * scale;
+        const auto bits = static_cast<std::uint64_t>(static_cast<std::int64_t>(kf) + 1023) << 52;
+        out[k] = p * std::bit_cast<double>(bits);
     }
 }
 
