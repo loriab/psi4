@@ -2204,11 +2204,13 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
             double cut = std::numeric_limits<double>::infinity();
             if (do_screen) {
                 cut = 0.0;
+                const double shell_eps = screen_eps / (shell_off[atom + 1] - shell_off[atom]);
                 for (int s = shell_off[atom]; s < shell_off[atom + 1]; s++) {
-                    // shell_coef * exp(-r/S) < eps  ->  r > S * ln(shell_coef / eps)
-                    if (shell_coef[s] > screen_eps) {
+                    // Requiring every shell to be below eps / nshell guarantees that their sum,
+                    // the pro-atom density documented by MBIS_SCREENING_THRESHOLD, is below eps.
+                    if (shell_coef[s] > shell_eps) {
                         const double S = -1.0 / shell_rate[s];
-                        cut = std::max(cut, S * std::log(shell_coef[s] / screen_eps));
+                        cut = std::max(cut, S * std::log(shell_coef[s] / shell_eps));
                     }
                 }
             }
@@ -2229,8 +2231,8 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
                 if (d < atom_cut[atom]) block_atoms.push_back(atom);
             }
             // Atoms present last time but not now: their stale densities must be zeroed. Both lists
-            // are ascending, so this is a merge. (The dropped values are below screen_eps by
-            // construction, so discarding them does not perturb the convergence delta.)
+            // are ascending, so this is a merge. The sweep accounts for the small transition from
+            // the stale value to zero in the convergence delta.
             if (!first_screening) {
                 size_t i = prev_atoms_off[b], j = block_atoms_off[b];
                 const size_t iend = prev_atoms_off[b + 1], jend = block_atoms.size();
@@ -2279,7 +2281,11 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
                 // densities; clear them so the (point, atom) entries stay uniformly valid.
                 for (size_t k = block_drop_off[b]; k < block_drop_off[b + 1]; k++) {
                     const int atom = block_drop[k];
-                    for (size_t p = off; p < off + np; p++) rho_a_0_points[p * num_atoms + atom] = 0.0;
+                    for (size_t p = off; p < off + np; p++) {
+                        double& stale_density = rho_a_0_points[p * num_atoms + atom];
+                        if (accumulate_delta) loc_d[atom] += weights[p] * stale_density * stale_density;
+                        stale_density = 0.0;
+                    }
                 }
                 if (na == 0) continue;
 
