@@ -2246,104 +2246,119 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
         std::fill(sum_s.begin(), sum_s.end(), 0.0);
         std::fill(delta_atom.begin(), delta_atom.end(), 0.0);
 
+        // Fixed chunks preserve dynamic load balancing without making the summation order depend on
+        // which thread finishes first. The chunk count also caps the extra reduction storage.
+        constexpr size_t kMaxReductionChunks = 64;
+        const size_t n_chunks = std::min(n_blocks, kMaxReductionChunks);
+        std::vector<double> chunk_n(n_chunks * total_shells, 0.0), chunk_s(n_chunks * total_shells, 0.0);
+        std::vector<double> chunk_d(n_chunks * num_atoms, 0.0);
+
 #pragma omp parallel
         {
-            std::vector<double> loc_n(total_shells, 0.0), loc_s(total_shells, 0.0);
-            std::vector<double> loc_d(num_atoms, 0.0);
             std::vector<double> atom_r(num_atoms);
             // Per-block flattened shell tables, so the exponentials of one grid point form a
             // single contiguous batch instead of num_atoms batches of one to five.
             std::vector<double> bcoef, brate, barg, bval;
             std::vector<int> bglob, bstart;
 
-            // Blocks vary in both point count and surviving-atom count, so hand them out dynamically.
+            // Chunks vary in surviving-atom count, so hand them out dynamically. Each chunk covers a
+            // fixed contiguous range of blocks and owns its reduction buffers.
 #pragma omp for schedule(dynamic, 1)
-            for (size_t b = 0; b < n_blocks; b++) {
-                const size_t off = block_offset[b], np = block_size[b];
-                const int* atoms = block_atoms.data() + block_atoms_off[b];
-                const int na = static_cast<int>(block_atoms_off[b + 1] - block_atoms_off[b]);
+            for (size_t chunk = 0; chunk < n_chunks; chunk++) {
+                double* loc_n = chunk_n.data() + chunk * total_shells;
+                double* loc_s = chunk_s.data() + chunk * total_shells;
+                double* loc_d = chunk_d.data() + chunk * num_atoms;
+                const size_t block_begin = n_blocks * chunk / n_chunks;
+                const size_t block_end = n_blocks * (chunk + 1) / n_chunks;
+                for (size_t b = block_begin; b < block_end; b++) {
+                    const size_t off = block_offset[b], np = block_size[b];
+                    const int* atoms = block_atoms.data() + block_atoms_off[b];
+                    const int na = static_cast<int>(block_atoms_off[b + 1] - block_atoms_off[b]);
 
-                // Atoms that left this block's list since the last sweep still hold that sweep's
-                // densities; clear them so the (point, atom) entries stay uniformly valid.
-                for (size_t k = block_drop_off[b]; k < block_drop_off[b + 1]; k++) {
-                    const int atom = block_drop[k];
-                    for (size_t p = off; p < off + np; p++) {
-                        double& stale_density = rho_a_0_points[p * num_atoms + atom];
-                        if (accumulate_delta) loc_d[atom] += weights[p] * stale_density * stale_density;
-                        stale_density = 0.0;
+                    // Atoms that left this block's list since the last sweep still hold that sweep's
+                    // densities; clear them so the (point, atom) entries stay uniformly valid.
+                    for (size_t k = block_drop_off[b]; k < block_drop_off[b + 1]; k++) {
+                        const int atom = block_drop[k];
+                        for (size_t p = off; p < off + np; p++) {
+                            double& stale_density = rho_a_0_points[p * num_atoms + atom];
+                            if (accumulate_delta) loc_d[atom] += weights[p] * stale_density * stale_density;
+                            stale_density = 0.0;
+                        }
                     }
-                }
-                if (na == 0) continue;
+                    if (na == 0) continue;
 
-                bstart.assign(na + 1, 0);
-                bcoef.clear();
-                brate.clear();
-                bglob.clear();
-                for (int ia = 0; ia < na; ia++) {
-                    const int atom = atoms[ia];
-                    for (int s = shell_off[atom]; s < shell_off[atom + 1]; s++) {
-                        bcoef.push_back(shell_coef[s]);
-                        brate.push_back(shell_rate[s]);
-                        bglob.push_back(s);
-                    }
-                    bstart[ia + 1] = static_cast<int>(bcoef.size());
-                }
-                const int ns = static_cast<int>(bcoef.size());
-                barg.resize(ns);
-                bval.resize(ns);
-
-                for (size_t point = off; point < off + np; point++) {
-                    const double xp = x_points[point], yp = y_points[point], zp = z_points[point];
-
+                    bstart.assign(na + 1, 0);
+                    bcoef.clear();
+                    brate.clear();
+                    bglob.clear();
                     for (int ia = 0; ia < na; ia++) {
                         const int atom = atoms[ia];
-                        const double dx = xp - atom_x[atom], dy = yp - atom_y[atom], dz = zp - atom_z[atom];
-                        const double r = std::sqrt(dx * dx + dy * dy + dz * dz);
-                        atom_r[atom] = r;
-                        for (int k = bstart[ia]; k < bstart[ia + 1]; k++) barg[k] = brate[k] * r;
+                        for (int s = shell_off[atom]; s < shell_off[atom + 1]; s++) {
+                            bcoef.push_back(shell_coef[s]);
+                            brate.push_back(shell_rate[s]);
+                            bglob.push_back(s);
+                        }
+                        bstart[ia + 1] = static_cast<int>(bcoef.size());
                     }
+                    const int ns = static_cast<int>(bcoef.size());
+                    barg.resize(ns);
+                    bval.resize(ns);
 
-                    mbis_exp_batch(barg.data(), bval.data(), ns);
+                    for (size_t point = off; point < off + np; point++) {
+                        const double xp = x_points[point], yp = y_points[point], zp = z_points[point];
 
-                    double rho_0 = 0.0;
+                        for (int ia = 0; ia < na; ia++) {
+                            const int atom = atoms[ia];
+                            const double dx = xp - atom_x[atom], dy = yp - atom_y[atom], dz = zp - atom_z[atom];
+                            const double r = std::sqrt(dx * dx + dy * dy + dz * dz);
+                            atom_r[atom] = r;
+                            for (int k = bstart[ia]; k < bstart[ia + 1]; k++) barg[k] = brate[k] * r;
+                        }
+
+                        mbis_exp_batch(barg.data(), bval.data(), ns);
+
+                        double rho_0 = 0.0;
 #pragma omp simd reduction(+ : rho_0)
-                    for (int k = 0; k < ns; k++) {
-                        bval[k] *= bcoef[k];
-                        rho_0 += bval[k];
-                    }
-
-                    const double w = weights[point];
-                    const double scale = w * rho[point] / rho_0;
-                    double* rho_a_0_here = &rho_a_0_points[point * num_atoms];
-
-                    for (int ia = 0; ia < na; ia++) {
-                        const int atom = atoms[ia];
-                        const double r = atom_r[atom];
-                        double rho_a_0 = 0.0;
-                        for (int k = bstart[ia]; k < bstart[ia + 1]; k++) {
-                            const double v = bval[k];
-                            loc_n[bglob[k]] += scale * v;
-                            loc_s[bglob[k]] += scale * r * v;
-                            rho_a_0 += v;
+                        for (int k = 0; k < ns; k++) {
+                            bval[k] *= bcoef[k];
+                            rho_0 += bval[k];
                         }
-                        if (accumulate_delta) {
-                            const double d = rho_a_0 - rho_a_0_here[atom];
-                            loc_d[atom] += w * d * d;
+
+                        const double w = weights[point];
+                        const double scale = w * rho[point] / rho_0;
+                        double* rho_a_0_here = &rho_a_0_points[point * num_atoms];
+
+                        for (int ia = 0; ia < na; ia++) {
+                            const int atom = atoms[ia];
+                            const double r = atom_r[atom];
+                            double rho_a_0 = 0.0;
+                            for (int k = bstart[ia]; k < bstart[ia + 1]; k++) {
+                                const double v = bval[k];
+                                loc_n[bglob[k]] += scale * v;
+                                loc_s[bglob[k]] += scale * r * v;
+                                rho_a_0 += v;
+                            }
+                            if (accumulate_delta) {
+                                const double d = rho_a_0 - rho_a_0_here[atom];
+                                loc_d[atom] += w * d * d;
+                            }
+                            rho_a_0_here[atom] = rho_a_0;
                         }
-                        rho_a_0_here[atom] = rho_a_0;
+                        rho_0_points[point] = rho_0;
                     }
-                    rho_0_points[point] = rho_0;
                 }
             }
+        }
 
-#pragma omp critical
-            {
-                for (int s = 0; s < total_shells; s++) {
-                    sum_n[s] += loc_n[s];
-                    sum_s[s] += loc_s[s];
-                }
-                for (int atom = 0; atom < num_atoms; atom++) delta_atom[atom] += loc_d[atom];
+        for (size_t chunk = 0; chunk < n_chunks; chunk++) {
+            const double* loc_n = chunk_n.data() + chunk * total_shells;
+            const double* loc_s = chunk_s.data() + chunk * total_shells;
+            const double* loc_d = chunk_d.data() + chunk * num_atoms;
+            for (int s = 0; s < total_shells; s++) {
+                sum_n[s] += loc_n[s];
+                sum_s[s] += loc_s[s];
             }
+            for (int atom = 0; atom < num_atoms; atom++) delta_atom[atom] += loc_d[atom];
         }
 
         for (int s = 0; s < total_shells; s++) {
@@ -2505,53 +2520,58 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
     const int n_acc = 20 + n_rmom;  // 1 monopole + 3 dipole + 6 quadrupole + 10 octupole + moments
 
     std::vector<double> acc(static_cast<size_t>(num_atoms) * n_acc, 0.0);
+    constexpr size_t kMaxReductionChunks = 64;
+    const size_t n_chunks = std::min(n_blocks, kMaxReductionChunks);
+    std::vector<double> chunk_acc(n_chunks * acc.size(), 0.0);
 
 #pragma omp parallel
     {
-        std::vector<double> loc(static_cast<size_t>(num_atoms) * n_acc, 0.0);
-
 #pragma omp for schedule(dynamic, 1)
-        for (size_t b = 0; b < n_blocks; b++) {
-            const size_t off = block_offset[b], np = block_size[b];
-            const int* atoms = block_atoms.data() + block_atoms_off[b];
-            const int na = static_cast<int>(block_atoms_off[b + 1] - block_atoms_off[b]);
-            if (na == 0) continue;  // no atom reaches this block; rho_0 was never formed there
+        for (size_t chunk = 0; chunk < n_chunks; chunk++) {
+            double* loc = chunk_acc.data() + chunk * acc.size();
+            const size_t block_begin = n_blocks * chunk / n_chunks;
+            const size_t block_end = n_blocks * (chunk + 1) / n_chunks;
+            for (size_t b = block_begin; b < block_end; b++) {
+                const size_t off = block_offset[b], np = block_size[b];
+                const int* atoms = block_atoms.data() + block_atoms_off[b];
+                const int na = static_cast<int>(block_atoms_off[b + 1] - block_atoms_off[b]);
+                if (na == 0) continue;  // no atom reaches this block; rho_0 was never formed there
 
-            for (size_t p = off; p < off + np; p++) {
-                const double xp = x_points[p], yp = y_points[p], zp = z_points[p];
-                const double wrho = weights[p] * rho[p] / rho_0_points[p];
-                const double* rho_a_0_here = &rho_a_0_points[p * num_atoms];
+                for (size_t p = off; p < off + np; p++) {
+                    const double xp = x_points[p], yp = y_points[p], zp = z_points[p];
+                    const double wrho = weights[p] * rho[p] / rho_0_points[p];
+                    const double* rho_a_0_here = &rho_a_0_points[p * num_atoms];
 
-                for (int ia = 0; ia < na; ia++) {
-                    const int a = atoms[ia];
-                    const double d[3] = {xp - atom_x[a], yp - atom_y[a], zp - atom_z[a]};
-                    // c = -w * rho_a; the multipoles carry the electron's negative charge, the
-                    // radial moments do not.
-                    const double c = -wrho * rho_a_0_here[a];
-                    double* la = &loc[static_cast<size_t>(a) * n_acc];
+                    for (int ia = 0; ia < na; ia++) {
+                        const int a = atoms[ia];
+                        const double d[3] = {xp - atom_x[a], yp - atom_y[a], zp - atom_z[a]};
+                        // c = -w * rho_a; the multipoles carry the electron's negative charge, the
+                        // radial moments do not.
+                        const double c = -wrho * rho_a_0_here[a];
+                        double* la = &loc[static_cast<size_t>(a) * n_acc];
 
-                    la[0] += c;
-                    for (int i = 0; i < 3; i++) la[1 + i] += c * d[i];
-                    for (int q = 0; q < 6; q++) la[4 + q] += c * d[qpole_inds[q][0]] * d[qpole_inds[q][1]];
-                    for (int o = 0; o < 10; o++)
-                        la[10 + o] += c * d[opole_inds[o][0]] * d[opole_inds[o][1]] * d[opole_inds[o][2]];
+                        la[0] += c;
+                        for (int i = 0; i < 3; i++) la[1 + i] += c * d[i];
+                        for (int q = 0; q < 6; q++) la[4 + q] += c * d[qpole_inds[q][0]] * d[qpole_inds[q][1]];
+                        for (int o = 0; o < 10; o++)
+                            la[10 + o] += c * d[opole_inds[o][0]] * d[opole_inds[o][1]] * d[opole_inds[o][2]];
 
-                    const double r2 = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
-                    const double r = std::sqrt(r2);
-                    double rn = r2;  // n = 2
-                    la[20] -= c * rn;
-                    for (int n = 3; n <= rmom_top; n++) {
-                        rn *= r;
-                        la[20 + n - 2] -= c * rn;
+                        const double r2 = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+                        const double r = std::sqrt(r2);
+                        double rn = r2;  // n = 2
+                        la[20] -= c * rn;
+                        for (int n = 3; n <= rmom_top; n++) {
+                            rn *= r;
+                            la[20 + n - 2] -= c * rn;
+                        }
                     }
                 }
             }
         }
-
-#pragma omp critical
-        {
-            for (size_t i = 0; i < acc.size(); i++) acc[i] += loc[i];
-        }
+    }
+    for (size_t chunk = 0; chunk < n_chunks; chunk++) {
+        const double* loc = chunk_acc.data() + chunk * acc.size();
+        for (size_t i = 0; i < acc.size(); i++) acc[i] += loc[i];
     }
 
     std::vector<SharedMatrix> rmoms;
