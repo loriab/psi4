@@ -1262,7 +1262,7 @@ SharedMatrix ESPPropCalc::compute_field_over_grid_in_memory(SharedMatrix input_g
 
 void OEProp::compute_esp_at_nuclei() {
     std::shared_ptr<std::vector<double>> nesps = epc_.compute_esp_at_nuclei(true, print_ > 2);
-    for (int atom1 = 0; atom1 < nesps->size(); ++atom1) {
+    for (size_t atom1 = 0; atom1 < nesps->size(); ++atom1) {
         std::stringstream s;
         s << "ESP AT CENTER " << atom1 + 1;
         /*- Process::environment.globals["ESP AT CENTER n"] -*/
@@ -1824,26 +1824,42 @@ class MBISAnderson {
     static constexpr double kRidge = 1.0e-12;    // relative Tikhonov penalty on the mixing coefficients
     static constexpr double kMaxCoefSum = 20.0;  // reject extrapolations that reach this far out
 
-    size_t n_;                                  // length of the parameter vector
-    size_t depth_;                              // history length
-    std::vector<std::vector<double>> xs_, fs_;  // iterates and residuals, most recent last
+    size_t n_;      // length of the parameter vector
+    size_t depth_;  // history length
+    // Iterates and residuals, one column each. A ring buffer over fixed columns rather than a
+    // deque of vectors: dropping the oldest entry is an index update instead of a memmove of the
+    // whole history, and the least-squares matrix below can be filled with block writes instead of
+    // hand-rolled column-major arithmetic.
+    Eigen::MatrixXd xs_, fs_;
+    size_t count_ = 0;  // how many columns are live, capped at depth_
+    size_t head_ = 0;   // column holding the oldest live entry
 
    public:
-    MBISAnderson(size_t n, size_t depth) : n_(n), depth_(depth) {}
+    MBISAnderson(size_t n, size_t depth)
+        : n_(n),
+          depth_(depth),
+          xs_(Eigen::MatrixXd::Zero(static_cast<Eigen::Index>(n), static_cast<Eigen::Index>(depth))),
+          fs_(Eigen::MatrixXd::Zero(static_cast<Eigen::Index>(n), static_cast<Eigen::Index>(depth))) {}
+
+    /// Column of the history holding entry i, counting 0 as the oldest live entry.
+    Eigen::Index slot(size_t i) const { return static_cast<Eigen::Index>((head_ + i) % depth_); }
 
     /// Given the current iterate x and the Picard image g(x), return the next iterate.
     std::vector<double> next(const std::vector<double>& x, const std::vector<double>& g) {
-        std::vector<double> f(n_);
-        for (size_t i = 0; i < n_; i++) f[i] = g[i] - x[i];
+        const Eigen::Map<const Eigen::VectorXd> xv(x.data(), static_cast<Eigen::Index>(n_));
+        const Eigen::Map<const Eigen::VectorXd> gv(g.data(), static_cast<Eigen::Index>(n_));
 
-        xs_.push_back(g);  // store the images; the mix is over g's, Anderson type-II
-        fs_.push_back(f);
-        if (xs_.size() > depth_) {
-            xs_.erase(xs_.begin());
-            fs_.erase(fs_.begin());
+        // Store the images; the mix is over g's, Anderson type-II.
+        const Eigen::Index write = (count_ < depth_) ? slot(count_) : head_;
+        xs_.col(write) = gv;
+        fs_.col(write) = gv - xv;
+        if (count_ < depth_) {
+            count_++;
+        } else {
+            head_ = (head_ + 1) % depth_;  // overwrote the oldest; it is now the newest
         }
 
-        const size_t m = xs_.size();
+        const size_t m = count_;
         if (m < 2) return g;  // nothing to extrapolate from yet
 
         // Minimise ||sum_i c_i f_i|| subject to sum_i c_i = 1. Eliminate the last coefficient,
@@ -1854,27 +1870,26 @@ class MBISAnderson {
         const int nrows = static_cast<int>(n_) + static_cast<int>(m);
         const int ldb = std::max(nrows, ncols);
         double maxdiag = 0.0;
-        for (size_t i = 0; i < m; i++) {
-            double diagonal = 0.0;
-            for (size_t k = 0; k < n_; k++) diagonal += fs_[i][k] * fs_[i][k];
-            maxdiag = std::max(maxdiag, diagonal);
-        }
+        for (size_t i = 0; i < m; i++) maxdiag = std::max(maxdiag, fs_.col(slot(i)).squaredNorm());
         if (!(maxdiag > 0.0) || !std::isfinite(maxdiag)) return g;
 
-        // DGELSY expects column-major storage. The first n_ rows hold f_i - f_last; the remaining
-        // rows express sqrt(lambda) * ||c||, including c_last = 1 - sum_i alpha_i.
-        std::vector<double> A(static_cast<size_t>(nrows) * ncols, 0.0), rhs(ldb, 0.0);
-        const auto& f_last = fs_.back();
-        for (size_t k = 0; k < n_; k++) rhs[k] = -f_last[k];
-        for (int i = 0; i < ncols; i++) {
-            for (size_t k = 0; k < n_; k++) A[static_cast<size_t>(i) * nrows + k] = fs_[i][k] - f_last[k];
+        // Eigen is column-major, which is what DGELSY wants, so A can be handed over directly.
+        // Rows [0, n_) hold f_i - f_last. The next ncols rows penalise each alpha_i, and the final
+        // row penalises c_last = 1 - sum_i alpha_i, so the ridge acts on the whole coefficient
+        // vector rather than only the part that survived the elimination.
+        const Eigen::Index nrows_e = nrows, ncols_e = ncols, n_e = static_cast<Eigen::Index>(n_);
+        Eigen::MatrixXd A = Eigen::MatrixXd::Zero(nrows_e, ncols_e);
+        Eigen::VectorXd rhs = Eigen::VectorXd::Zero(ldb);
+
+        const auto f_last = fs_.col(slot(m - 1));
+        rhs.head(n_e) = -f_last;
+        for (Eigen::Index i = 0; i < ncols_e; i++) {
+            A.col(i).head(n_e) = fs_.col(slot(static_cast<size_t>(i))) - f_last;
         }
         const double sqrt_ridge = std::sqrt(kRidge * maxdiag);
-        for (int i = 0; i < ncols; i++) {
-            A[static_cast<size_t>(i) * nrows + n_ + i] = sqrt_ridge;
-            A[static_cast<size_t>(i) * nrows + n_ + ncols] = sqrt_ridge;
-        }
-        rhs[n_ + ncols] = sqrt_ridge;
+        A.block(n_e, 0, ncols_e, ncols_e).diagonal().setConstant(sqrt_ridge);
+        A.row(n_e + ncols_e).setConstant(sqrt_ridge);
+        rhs(n_e + ncols_e) = sqrt_ridge;
 
         // The problem is tall and extremely thin -- about 550 x 5 -- so threading it buys nothing
         // and costs reproducibility: a threaded QR picks its reduction order at run time, which
@@ -1886,30 +1901,29 @@ class MBISAnderson {
         const int mkl_threads_on_entry = mkl_get_max_threads();
         mkl_set_num_threads(1);
 #endif
+        // The ridge block is itself full column rank, so the stacked matrix always is too. That
+        // makes rank deficiency unreachable and DGELSY's rcond inert; conditioning is handled by
+        // kRidge, and a wild extrapolation by the coefficient-sum test below.
         std::vector<int> jpvt(ncols, 0);
         int rank = 0;
         double work_query = 0.0;
-        const double rcond = std::numeric_limits<double>::epsilon() * std::max(nrows, ncols);
-        int info = C_DGELSY(nrows, ncols, 1, A.data(), nrows, rhs.data(), ldb, jpvt.data(), rcond, &rank,
+        int info = C_DGELSY(nrows, ncols, 1, A.data(), nrows, rhs.data(), ldb, jpvt.data(), 0.0, &rank,
                             &work_query, -1);
         const int lwork = std::max(1, static_cast<int>(work_query));
         std::vector<double> work(lwork);
         if (info == 0 && std::isfinite(work_query)) {
             std::fill(jpvt.begin(), jpvt.end(), 0);
-            info = C_DGELSY(nrows, ncols, 1, A.data(), nrows, rhs.data(), ldb, jpvt.data(), rcond, &rank, work.data(),
+            info = C_DGELSY(nrows, ncols, 1, A.data(), nrows, rhs.data(), ldb, jpvt.data(), 0.0, &rank, work.data(),
                             lwork);
         }
 #ifdef USING_LAPACK_MKL
         mkl_set_num_threads(mkl_threads_on_entry);
 #endif
-        if (info != 0 || rank != ncols) return g;
+        if (info != 0) return g;
 
         std::vector<double> c(m);
-        double alpha_sum = 0.0;
-        for (int i = 0; i < ncols; i++) {
-            c[i] = rhs[i];
-            alpha_sum += rhs[i];
-        }
+        const double alpha_sum = rhs.head(ncols_e).sum();
+        for (int i = 0; i < ncols; i++) c[i] = rhs(i);
         c.back() = 1.0 - alpha_sum;
 
         // sum_i c_i == 1 by construction, so sum_i |c_i| measures how far outside the history the
@@ -1918,18 +1932,18 @@ class MBISAnderson {
         for (size_t i = 0; i < m; i++) coefsum += std::fabs(c[i]);
         if (!std::isfinite(coefsum) || coefsum > kMaxCoefSum) return g;
 
-        std::vector<double> out(n_, 0.0);
-        for (size_t i = 0; i < m; i++)
-            for (size_t k = 0; k < n_; k++) out[k] += c[i] * xs_[i][k];
+        std::vector<double> out(n_);
+        Eigen::Map<Eigen::VectorXd> outv(out.data(), n_e);
+        outv.setZero();
+        for (size_t i = 0; i < m; i++) outv += c[i] * xs_.col(slot(i));
 
-        for (size_t k = 0; k < n_; k++)
-            if (!std::isfinite(out[k])) return g;  // reject a bad extrapolation wholesale
+        if (!outv.allFinite()) return g;  // reject a bad extrapolation wholesale
         return out;
     }
 
     void reset() {
-        xs_.clear();
-        fs_.clear();
+        count_ = 0;
+        head_ = 0;
     }
 };
 
@@ -1988,7 +2002,7 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
     size_t max_nbf = 0;
 
     std::vector<std::shared_ptr<BlockOPoints>> blocks = grid->blocks();
-    for (int b = 0; b < blocks.size(); b++) {
+    for (size_t b = 0; b < blocks.size(); b++) {
         max_points = std::max(max_points, blocks[b]->npoints());
         max_nbf = std::max(max_nbf, blocks[b]->local_nbf());
     }
@@ -2022,7 +2036,7 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
     std::vector<double> rho(total_points, 0.0);
 
     timer_on("MBIS: grid density");
-    for (int b = 0; b < blocks.size(); b++) {
+    for (size_t b = 0; b < blocks.size(); b++) {
         std::shared_ptr<BlockOPoints> block = blocks[b];
         SharedVector rho_block;
         size_t num_points = block->npoints();
@@ -2062,7 +2076,7 @@ std::tuple<SharedMatrix, SharedMatrix, SharedMatrix, SharedMatrix> PopulationAna
 
     // Electron count via numerical interagration
     double grid_electrons = 0.0;
-    for (int p = 0; p < total_points; p++) {
+    for (size_t p = 0; p < total_points; p++) {
         grid_electrons += weights[p] * rho[p];
     }
 
