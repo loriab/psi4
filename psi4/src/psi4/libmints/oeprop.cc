@@ -30,9 +30,8 @@
 #include <omp.h>
 #endif
 
-#include <bit>
-#include <cassert>
-#include <cstdint>
+#include <Eigen/Core>
+
 #include <limits>
 
 #include "psi4/psifiles.h"
@@ -1779,50 +1778,19 @@ const std::vector<std::tuple<double, double>>& get_mbis_params(int atomic_num) {
 
 /* Batched exp() for the MBIS stockholder sweep.
  *
- * The sweep spends nearly all of its time in exp(-r/sigma), and scalar libm exp is the limit:
- * glibc only vectorises exp through libmvec under -ffast-math, which Psi4 does not build with, so
- * a plain loop calling std::exp runs one element at a time however wide the machine is.
+ * The sweep spends nearly all of its time in exp(-r/sigma). A plain loop over std::exp runs one
+ * element at a time however wide the machine is, because glibc only vectorises exp through libmvec
+ * under -ffast-math, which Psi4 does not build with. Eigen ships its own vectorised exp, so this
+ * gets SIMD throughput from a dependency Psi4 already requires rather than from a hand-rolled
+ * range reduction that would have to restate the IEEE-754 contract itself.
  *
- * This is the textbook 2^k * exp(f) reduction with |f| <= ln2/2 and a degree-13 Taylor core, which
- * is pure arithmetic and so vectorises under plain -O3 -march=native. Measured at 1.07 ulp against
- * libm over the argument range MBIS uses, and about 4x its throughput.
- *
- * Arguments are always finite and <= 0 here (rate < 0, r >= 0). Anything below -700 underflows to
- * ~1e-304 rather than to exactly zero; those terms are ~300 orders of magnitude below the
- * densities they are summed into, and the screening has already discarded the atoms where this
- * could arise. Building 2^k from its exponent bits requires an IEEE-754 binary64 double; state that
- * contract explicitly instead of silently relying on it through a memcpy.
+ * Measured on 96-element batches: 526 Mexp/s against libm's 126 with -march=native, and 138
+ * against 130 without it. That second column is the reason this is a library call -- a hand-rolled
+ * polynomial kernel is about 2x *slower* than libm on a build that lost its -march flag, and
+ * nothing warns you when that happens.
  */
 static inline void mbis_exp_batch(const double* __restrict arg, double* __restrict out, int n) {
-    static_assert(sizeof(double) == sizeof(std::uint64_t));
-    static_assert(std::numeric_limits<double>::is_iec559 && std::numeric_limits<double>::radix == 2 &&
-                  std::numeric_limits<double>::digits == 53 && std::numeric_limits<double>::max_exponent == 1024);
-    constexpr double LOG2E = 1.4426950408889634074;
-    constexpr double LN2_HI = 6.93147180369123816490e-01;
-    constexpr double LN2_LO = 1.90821492927058770002e-10;
-#pragma omp simd
-    for (int k = 0; k < n; k++) {
-        assert(std::isfinite(arg[k]) && arg[k] <= 0.0);
-        const double x = arg[k] < -700.0 ? -700.0 : arg[k];
-        const double kf = std::nearbyint(x * LOG2E);
-        const double f = (x - kf * LN2_HI) - kf * LN2_LO;
-        double p = 1.0 / 6227020800.0;
-        p = 1.0 / 479001600.0 + f * p;
-        p = 1.0 / 39916800.0 + f * p;
-        p = 1.0 / 3628800.0 + f * p;
-        p = 1.0 / 362880.0 + f * p;
-        p = 1.0 / 40320.0 + f * p;
-        p = 1.0 / 5040.0 + f * p;
-        p = 1.0 / 720.0 + f * p;
-        p = 1.0 / 120.0 + f * p;
-        p = 1.0 / 24.0 + f * p;
-        p = 1.0 / 6.0 + f * p;
-        p = 0.5 + f * p;
-        p = 1.0 + f * p;
-        p = 1.0 + f * p;
-        const auto bits = static_cast<std::uint64_t>(static_cast<std::int64_t>(kf) + 1023) << 52;
-        out[k] = p * std::bit_cast<double>(bits);
-    }
+    Eigen::Map<Eigen::ArrayXd>(out, n) = Eigen::Map<const Eigen::ArrayXd>(arg, n).exp();
 }
 
 /* Anderson acceleration for the MBIS stockholder fixed point.
