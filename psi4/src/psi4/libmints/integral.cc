@@ -27,12 +27,16 @@
  */
 #include "psi4/libmints/integral.h"
 
+#include <algorithm>
 #include <functional>
 #include <map>
 #include <mutex>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <vector>
+
+#include <libint2/engine.h>
 
 #include "psi4/libmints/shellrotation.h"
 #include "psi4/libmints/cartesianiter.h"
@@ -95,8 +99,14 @@ void note_engine(const std::string &kind, const std::string &engine) {
 enum class EriEngine { Libint2, Libcint, Simint };
 
 /// How each engine constructs one class of two-electron integral; absent or empty where
-/// the engine can't compute that class.
+/// the engine can't compute that class. A maker throws EngineDeclines (or Libint2 throws
+/// lmax_exceeded) where the engine can't compute these particular integrals.
 using EriMakers = std::map<EriEngine, std::function<std::unique_ptr<TwoBodyAOInt>()>>;
+
+/// Thrown by an EriMakers entry to pass these integrals to the next engine in the chain.
+struct EngineDeclines : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
 
 std::string engine_name(EriEngine engine) {
     switch (engine) {
@@ -108,6 +118,12 @@ std::string engine_name(EriEngine engine) {
             return "simint";
     }
     return "";
+}
+
+/// Why an engine declines integrals of angular momentum `am`.
+std::string am_beyond(int am, EriEngine engine, int limit) {
+    return "angular momentum " + std::to_string(am) + " exceeds " + engine_name(engine) + "'s build limit of " +
+           std::to_string(limit);
 }
 
 /// Why Psi4 can't use the engine at all, or empty if it was built with it.
@@ -124,10 +140,11 @@ std::string engine_missing(EriEngine engine) {
 /// The engines INTEGRAL_PACKAGE tries, in order. The first that can compute a class of
 /// two-electron integrals supplies it; the _ONLY packages never fall back.
 std::vector<EriEngine> eri_engine_chain(const std::string &integral_package) {
-    if (integral_package == "LIBINT2") return {EriEngine::Libint2};
+    if (integral_package == "LIBINT2") return {EriEngine::Libint2, EriEngine::Libcint};
+    if (integral_package == "LIBINT2_ONLY") return {EriEngine::Libint2};
     if (integral_package == "LIBCINT") return {EriEngine::Libcint, EriEngine::Libint2};
     if (integral_package == "LIBCINT_ONLY") return {EriEngine::Libcint};
-    if (integral_package == "SIMINT") return {EriEngine::Simint};
+    if (integral_package == "SIMINT") return {EriEngine::Simint, EriEngine::Libint2};
     throw PSIEXCEPTION("INTEGRAL_PACKAGE " + integral_package + " has no two-electron integral engines.");
 }
 
@@ -146,9 +163,16 @@ std::unique_ptr<TwoBodyAOInt> build_from_chain(const std::string &kind, const Er
         if (why.empty() && (maker == makers.end() || !maker->second))
             why = engine_name(engine) + " doesn't compute them";
         if (why.empty()) {
-            auto ints = maker->second();
-            note_engine(kind, engine_name(engine) + (passed.empty() ? "" : " (fallback: " + passed + ")"));
-            return ints;
+            try {
+                auto ints = maker->second();
+                note_engine(kind, engine_name(engine) + (passed.empty() ? "" : " (fallback: " + passed + ")"));
+                return ints;
+            } catch (const EngineDeclines &e) {
+                why = e.what();
+            } catch (const libint2::Engine::lmax_exceeded &e) {
+                // lmax_limit() is exclusive: one past the highest angular momentum Libint2 was built for.
+                why = am_beyond(e.lmax_requested(), engine, e.lmax_limit() - 1);
+            }
         }
         passed += (passed.empty() ? "" : "; ") + why;
     }
@@ -331,7 +355,9 @@ std::unique_ptr<TwoBodyAOInt> IntegralFactory::eri(int deriv, bool use_shell_pai
 #endif
 #ifdef USING_simint
     if (deriv == 0)
-        makers[EriEngine::Simint] = [&] {
+        makers[EriEngine::Simint] = [&]() -> std::unique_ptr<TwoBodyAOInt> {
+            const int am = std::max({bs1_->max_am(), bs2_->max_am(), bs3_->max_am(), bs4_->max_am()});
+            if (am > SIMINT_OSTEI_MAXAM) throw EngineDeclines(am_beyond(am, EriEngine::Simint, SIMINT_OSTEI_MAXAM));
             return std::make_unique<SimintERI>(this, deriv, use_shell_pairs, needs_exchange);
         };
 #endif

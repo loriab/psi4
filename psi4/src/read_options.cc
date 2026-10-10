@@ -162,11 +162,15 @@ int read_options(const std::string &name, Options &options, bool suppress_printi
     /*- Psi4 dies if energy does not converge. !expert -*/
     options.add_bool("DIE_IF_NOT_CONVERGED", true);
     /*- Integral package to use for two-electron integrals. LIBINT2 is always available; SIMINT and LIBCINT need
-       Psi4 compiled with that library. SIMINT and LIBCINT_ONLY stop at integrals their library can't supply (e.g.,
-       derivatives), while LIBCINT falls back to LIBINT2 for them. libcint is experimental and covers 4-center,
+       Psi4 compiled with that library. Each package falls back to another library for integrals its own can't
+       supply, and the output file reports which library computes each class of integral: LIBINT2 falls back to
+       libcint (if compiled) for angular momentum beyond what Libint2 was built for; LIBCINT falls back to Libint2
+       (e.g., for derivatives); and SIMINT falls back to Libint2 (e.g., for derivatives, range-separated
+       integrals, and angular momentum beyond what simint was built for). LIBINT2_ONLY and
+       LIBCINT_ONLY never fall back, stopping with an error instead. libcint is experimental and covers 4-center,
        range-separated erf/erfc, and density-fitted (2-/3-center) integrals for spherical, cartesian, and mixed basis
        sets (no derivatives). Names for choices are experimental and likely to change. -*/
-    options.add_str("INTEGRAL_PACKAGE", "LIBINT2", "LIBINT2 SIMINT LIBCINT LIBCINT_ONLY");
+    options.add_str("INTEGRAL_PACKAGE", "LIBINT2", "LIBINT2 LIBINT2_ONLY SIMINT LIBCINT LIBCINT_ONLY");
 #ifdef USING_BrianQC
     /*- Whether to enable using the BrianQC GPU module -*/
     options.add_bool("BRIANQC_ENABLE", false);

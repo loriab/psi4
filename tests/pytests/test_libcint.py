@@ -10,7 +10,7 @@ cartesian bases.
 import numpy as np
 import pytest
 
-from addons import using
+from addons import using, uusing
 from utils import compare_values
 
 pytestmark = [pytest.mark.psi, pytest.mark.api]
@@ -34,6 +34,18 @@ def _water():
         symmetry c1
         """
     )
+
+
+def _recover_from_failure():
+    """Undo what a calculation that raised leaves behind, so later calculations in the process run: timers left
+    on, and the scratch units a DF gradient opens (scfgrad/jk_grad.cc) left open."""
+    import psi4
+
+    psi4.core.clean_timers()
+    io = psi4.core.IO.shared_object()
+    for unit in (105, 106, 107):
+        if io.open_check(unit):
+            io.close(unit, 0)
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -102,9 +114,9 @@ def test_engine_diffuse_high_am(engine, puream):
     assert compare_values(ref, ao_eri(engine), 10, f"{engine} AO ERI diffuse g puream={puream}")
 
 
-@pytest.mark.parametrize("engine", [p for p in ENGINES if p.values[0] != "simint"])  # simint has no erf
+@pytest.mark.parametrize("engine", ENGINES)
 def test_engine_erf_eri(engine):
-    """Range-separated erf AO ERIs match Libint2."""
+    """Range-separated erf AO ERIs match Libint2 (which SIMINT falls back to for them)."""
     import psi4
 
     psi4.core.clean()
@@ -288,6 +300,7 @@ def test_engine_gradient_fallback(engine, tmp_path):
     msg = "LIBCINT_ONLY can't supply ERI 1st deriv integrals: libcint doesn't compute them"
     with pytest.raises(Exception, match=msg):
         psi4.gradient("scf")
+    _recover_from_failure()
 
 
 @pytest.mark.parametrize("engine,name", [("libint2", "Libint2"), pytest.param("libcint", "libcint", marks=using("libcint"))])
@@ -349,3 +362,112 @@ def test_engine_diffuse_external_charge(engine):
         return psi4.energy("scf", external_potentials=external)
 
     assert compare_values(energy("libint2"), energy(engine), 9, f"{engine} SCF with diffuse external charges")
+
+
+@pytest.mark.parametrize("package", ["libint2", "libcint"])
+@uusing("libcint")
+def test_libcint_am_fallback(package, tmp_path):
+    """Energy integrals beyond Libint2's build angular momentum come from libcint; derivatives raise clearly, as
+    do LIBINT2_ONLY and SIMINT, whose chains lack libcint.
+
+    The fitting basis carries an l=10 shell, past Libint2's and simint's limits as usually built (and within
+    libcint's l<=15).
+    """
+    import psi4
+
+    psi4.core.clean()
+    _water()
+    psi4.basis_helper("""
+        spherical
+        ****
+        H 0
+        S 1 1.0
+          2.0 1.0
+        S 1 1.0
+          0.5 1.0
+        P 1 1.0
+          1.0 1.0
+        ****
+        O 0
+        S 1 1.0
+          20.0 1.0
+        S 1 1.0
+          4.0 1.0
+        S 1 1.0
+          0.8 1.0
+        P 1 1.0
+          4.0 1.0
+        P 1 1.0
+          0.8 1.0
+        D 1 1.0
+          1.5 1.0
+        L=10 1 1.0
+          2.0 1.0
+        ****
+        """, name="aux_l10", key="df_basis_scf", set_option=True)
+    psi4.set_options({"basis": "cc-pvdz", "scf_type": "df", "e_convergence": 1e-10, "d_convergence": 1e-10})
+
+    def energy(pkg):
+        psi4.set_options({"integral_package": pkg})
+        psi4.core.clean()
+        return psi4.energy("scf")
+
+    ref = energy("libcint_only")
+    out = tmp_path / "am_fallback.out"
+    psi4.set_output_file(str(out), False)
+    try:
+        tst = energy(package)
+    finally:
+        psi4.set_output_file("output.dat", True)
+    assert compare_values(ref, tst, 9, f"{package} DF-SCF with an l=10 fitting shell")
+    note = {
+        "libint2": "from libcint (fallback: angular momentum 10 exceeds Libint2's build limit",
+        "libcint": "from libcint.",
+    }[package]
+    assert f"Two-electron integrals (ERI) {note}" in out.read_text()
+
+    psi4.core.clean()
+    with pytest.raises(Exception, match="angular momentum 10 exceeds Libint2's build limit"):
+        psi4.gradient("scf")
+    _recover_from_failure()
+
+    if package == "libint2":
+        with pytest.raises(Exception, match="LIBINT2_ONLY can't supply ERI integrals: angular momentum 10 exceeds"):
+            energy("libint2_only")
+        _recover_from_failure()
+        if psi4.addons("simint"):
+            msg = "SIMINT can't supply ERI integrals: angular momentum 10 exceeds simint's build limit of [0-9]+; "
+            with pytest.raises(Exception, match=msg + "angular momentum 10 exceeds Libint2's build limit"):
+                energy("simint")
+            _recover_from_failure()
+
+
+@pytest.mark.parametrize("engine", [pytest.param("simint", marks=using("simint"))])
+def test_simint_fallback(engine, tmp_path):
+    """SIMINT falls back to Libint2 for derivatives and range-separated integrals."""
+    import psi4
+
+    psi4.core.clean()
+    _water()
+    psi4.set_options({"basis": "cc-pvdz", "scf_type": "df", "e_convergence": 1e-10, "d_convergence": 1e-10})
+
+    def run(pkg, method, driver):
+        psi4.set_options({"integral_package": pkg})
+        psi4.core.clean()
+        return np.asarray(driver(method))
+
+    ref_grad = run("libint2", "scf", psi4.gradient)
+    ref_wb97x = run("libint2", "wb97x", psi4.energy)
+    out = tmp_path / "simint_fallback.out"
+    psi4.set_output_file(str(out), False)
+    try:
+        grad = run(engine, "scf", psi4.gradient)
+        wb97x = run(engine, "wb97x", psi4.energy)
+    finally:
+        psi4.set_output_file("output.dat", True)
+    assert compare_values(ref_grad, grad, 8, "SIMINT SCF gradient (Libint2 fallback for derivatives)")
+    assert compare_values(ref_wb97x, wb97x, 8, "SIMINT wB97X energy (Libint2 fallback for erf integrals)")
+    text = out.read_text()
+    assert "Two-electron integrals (ERI) from simint." in text
+    assert "Two-electron integrals (ERI 1st deriv) from Libint2 (fallback: simint doesn't compute them)." in text
+    assert "Two-electron integrals (erf ERI) from Libint2 (fallback: simint doesn't compute them)." in text
