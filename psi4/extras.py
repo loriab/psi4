@@ -147,7 +147,7 @@ _addons_ = {
     "ambit": _CMake_to_Py_boolean("@ENABLE_ambit@"),
     "chemps2": _CMake_to_Py_boolean("@ENABLE_CheMPS2@"),
     "dkh": _CMake_to_Py_boolean("@ENABLE_dkh@"),
-    "ecpint": _CMake_to_Py_boolean("@ENABLE_ecpint@"),
+    "ecpint": linked if (linked := _CMake_to_Py_boolean("@ENABLE_ecpint@")) else (rt if (rt := _CMake_to_Py_boolean("@ENABLE_ecpint_RUNTIME@")) else False),
     "libefp": which_import("pylibefp", return_bool=True),
     "gdma": which_import("gdma", return_bool=True),  # package pygdma, import gdma
     "ipi": which_import("ipi", return_bool=True),
@@ -188,6 +188,14 @@ def addons(request: str = None) -> Union[bool, List[str]]:
     """Returns boolean of whether Add-On *request* is available to Psi4,
     either compiled in or searchable in $PSIPATH:$PATH, as relevant. If
     *request* not passed, returns list of available Add-Ons: `['adcc', 'ambit', 'c̶c̶t̶3̶', ...` .
+
+    Parameters
+    ----------
+    request
+        Return T/F for the availability of the single addon *request*.
+    runtime_only
+        Return current status of only the addons eligible (due to Python loading or build-time
+        choices) to be enabled at runtime.
 
     """
     def strike(text):

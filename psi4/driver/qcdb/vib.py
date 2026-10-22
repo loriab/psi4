@@ -34,6 +34,7 @@ from typing import Dict, List, Tuple, Union
 
 import numpy as np
 from qcelemental import Datum
+from qcelemental.models.v2 import Vibrations
 
 import psi4  # for typing
 
@@ -634,7 +635,25 @@ def harmonic_analysis(hess: np.ndarray, geom: np.ndarray, mass: np.ndarray, basi
     vib_temperature_K = frequency_cm_1.real * uconv_K
     vibinfo['theta_vib'] = Datum('char temp', 'K', vib_temperature_K)
 
-    return vibinfo, '\n'.join(text)
+    vibrations = Vibrations(
+        omega=vibinfo["omega"].data.real,  # TODO WRONG!!!
+        omega_in_wavenumbers=vibinfo["omega"].data.real,
+        x=vibinfo["x"].data,
+        q=vibinfo["q"].data,
+        w=vibinfo["w"].data,
+        degeneracy=vibinfo["degeneracy"].data,
+        trv=vibinfo["TRV"].data,
+        gamma=vibinfo["gamma"].data,
+        mu=vibinfo["mu"].data,
+        k=vibinfo["k"].data,
+        dq0=vibinfo["DQ0"].data,
+        qtp0=vibinfo["Qtp0"].data,
+        xtp0=vibinfo["Xtp0"].data,
+        theta_vib=vibinfo["theta_vib"].data,
+        infrared_intensity=vibinfo["IR_intensity"].data,
+    )
+
+    return vibinfo, '\n'.join(text), vibrations
 
 
 def _br(string):

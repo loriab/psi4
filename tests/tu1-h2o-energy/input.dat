@@ -10,6 +10,72 @@ molecule h2o {
 }
 
 set basis cc-pVDZ
-energy('scf')
+set hessian_write on
+ene, wfn = freq('scf', return_wfn=True)
 
 compare_values(-76.0266327341067125, variable('SCF TOTAL ENERGY'), 6, 'SCF energy')  #TEST
+
+fa = wfn.frequency_analysis
+
+for k, v in wfn.frequency_analysis.items():
+    print(k, v)
+
+
+from qcelemental.models.v2 import Vibrations
+
+myvib = Vibrations(
+    omega=fa["omega"].data.real,  # TODO WRONG!!!
+    omega_in_wavenumbers=fa["omega"].data.real,
+    x=fa["x"].data,
+    q=fa["q"].data,
+    w=fa["w"].data,
+    degeneracy=fa["degeneracy"].data,
+    trv=fa["TRV"].data,
+    gamma=fa["gamma"].data,
+    mu=fa["mu"].data,
+    k=fa["k"].data,
+    dq0=fa["DQ0"].data, 
+    qtp0=fa["Qtp0"].data, 
+    xtp0=fa["Xtp0"].data, 
+    theta_vib=fa["theta_vib"].data,
+    infrared_intensity=fa["IR_intensity"].data,
+)
+
+print(type(fa["x"].data))
+print(myvib)
+
+import pprint
+pprint.pprint(myvib.model_dump())
+
+
+#  +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | key           | description (label & comment)              | units     | data (real/imaginary modes)                          |
+#    +===============+============================================+===========+======================================================+
+#    | omega         | frequency                                  | cm^-1     | ndarray(ndof) complex (real/imag)                    |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | q             | normal mode, normalized mass-weighted      | a0 u^1/2  | ndarray(ndof, ndof) float                            |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | w             | normal mode, un-mass-weighted              | a0        | ndarray(ndof, ndof) float                            |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | x             | normal mode, normalized un-mass-weighted   | a0        | ndarray(ndof, ndof) float                            |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | degeneracy    | degree of degeneracy                       |           | ndarray(ndof) int                                    |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | TRV           | translation/rotation/vibration             |           | ndarray(ndof) str 'TR' or 'V' or '-' for partial     |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | gamma         | irreducible representation                 |           | ndarray(ndof) str irrep or None if unclassifiable    |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | mu            | reduced mass                               | u         | ndarray(ndof) float (+/+)                            |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | k             | force constant                             | mDyne/A   | ndarray(ndof) float (+/-)                            |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | DQ0           | RMS deviation v=0                          | a0 u^1/2  | ndarray(ndof) float (+/0)                            |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | Qtp0          | Turning point v=0                          | a0 u^1/2  | ndarray(ndof) float (+/0)                            |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | Xtp0          | Turning point v=0                          | a0        | ndarray(ndof) float (+/0)                            |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | theta_vib     | char temp                                  | K         | ndarray(ndof) float (+/0)                            |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+
+#    | IR_intensity  | infrared intensity                         | km/mol    | ndarray(ndof) float (+/+)                            |
+#    +---------------+--------------------------------------------+-----------+------------------------------------------------------+

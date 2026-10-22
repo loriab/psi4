@@ -1703,7 +1703,8 @@ def vibanal_wfn(
     m = np.asarray([mol.mass(at) for at in range(mol.natom())])
     irrep_labels = mol.irrep_labels()
 
-    vibinfo, vibtext = qcdb.vib.harmonic_analysis(nmwhess,
+    # vibrations is new QCSchema Vibrations instance (info also already in vibinfo)
+    vibinfo, vibtext, vibrations = qcdb.vib.harmonic_analysis(nmwhess,
                                                   geom,
                                                   m,
                                                   wfn.basisset(),
@@ -1711,10 +1712,16 @@ def vibanal_wfn(
                                                   dipder=dipder,
                                                   project_trans=project_trans,
                                                   project_rot=project_rot)
+                                                  # TODO perhaps toggle of what it returns from tuple[Datum] to qcsk instance
     vibrec.update({k: qca.json() for k, qca in vibinfo.items()})
 
     core.print_out(vibtext)
     core.print_out(qcdb.vib.print_vibs(vibinfo, shortlong=True, normco='x', atom_lbl=symbols))
+
+    if core.get_option('FINDIF', 'HESSIAN_WRITE'):
+        filename = core.get_writer_file_prefix(mol.name()) + ".vibrations.json"
+        with open(filename, 'w') as handle:
+            json.dump(vibrations.model_dump_json(), handle, sort_keys=True, indent=4)
 
     if core.has_option_changed('THERMO', 'ROTATIONAL_SYMMETRY_NUMBER'):
         rsn = core.get_option('THERMO', 'ROTATIONAL_SYMMETRY_NUMBER')
